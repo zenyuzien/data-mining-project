@@ -96,3 +96,7 @@ Notes:
 - Intro now: task in 3 sentences, then "The data" (contents, sample images, labels/demographics, MD leakage, things an engineer should know).
   New: `report/make_samples.py` -> `report/figs/samples.pdf`, `report/data_stats.json`. Data table moved to the intro; Sec 4.1 is now "Data splits".
 - Not yet pushed to GitHub (only report.pdf from the previous version was).
+
+## 13. Report body rewritten as bullet points in simple English (2026-11-09)
+- Everything after the Introduction (related work, method, experiments, conclusions, appendices) is now bullets with short, precise sentences. Numbers unchanged.
+- Not yet pushed to GitHub.
