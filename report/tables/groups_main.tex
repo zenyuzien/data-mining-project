@@ -1,0 +1,10 @@
+\begin{tabular}{lrrrrrrr}
+\toprule
+ & Female & Male & Asian & Black & White & Non-Hisp. & Hispanic \\
+$n$ (test) & 1449 & 551 & 177 & 301 & 1522 & 1917 & 83 \\
+\midrule
+ResNet18 from scratch (baseline) & 0.721 & 0.706 & 0.711 & 0.735 & 0.710 & 0.723 & 0.556 \\
+EfficientNet-B0, final recipe (one run) & 0.816 & 0.822 & 0.831 & 0.803 & 0.814 & 0.819 & 0.811 \\
+Final: ensemble of 8 models & 0.832 & 0.841 & 0.856 & 0.821 & 0.829 & 0.836 & 0.806 \\
+\bottomrule
+\end{tabular}

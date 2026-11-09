@@ -21,7 +21,7 @@
 \definecolor{cgray}{HTML}{8A8985}
 
 \title{Glaucoma Detection by Combining SLO and OCT Fundus Images:\\
-A Systematic Comparison of CNN, Transformer and Hybrid Models}
+An Ensemble of Pretrained Two-Branch EfficientNets}
 \author{Rushikesh}
 \date{November 2026}
 
@@ -30,32 +30,63 @@ A Systematic Comparison of CNN, Transformer and Hybrid Models}
 
 %==============================================================================
 \section{Introduction}
-Glaucoma is a progressive optic neuropathy and a leading cause of irreversible blindness. Vision lost to glaucoma
-cannot be restored, so detecting the disease early matters, and automated screening from retinal imaging is an
-attractive way to scale detection. Two imaging modalities are routinely acquired in the clinic: scanning laser
-ophthalmoscopy (SLO) fundus images, which show the surface of the retina, and optical coherence tomography (OCT),
-which captures retinal structure, including the nerve-fibre layer, in depth. The two views are complementary, so a
-model that sees both should in principle detect glaucoma better than a model that sees only one.
+\paragraph{Task.}
+Glaucoma is a chronic optic-nerve disease and a leading cause of irreversible blindness, so automated screening from retinal imaging is valuable. We address one problem from the FairDomain benchmark~\cite{fairdomain}:
+\emph{given two grayscale images of the same eye, an SLO fundus image and an OCT-derived fundus image, predict whether the eye has glaucoma} (binary classification).
+A solution outputs a probability $P(\text{glaucoma})$ for each image pair. It is judged by the area under the ROC curve (AUC) on a fixed held-out test set and, because the data carry demographic attributes,
+by how evenly that performance is spread over gender, race and ethnicity groups (Section~\ref{sec:eval}).
 
-In this project we solve a specific problem: \emph{binary glaucoma classification from a pair of images of the same
-eye, an SLO fundus image and an OCT-derived fundus image}, on the FairDomain data~\cite{fairdomain}. The data
-also carry demographic attributes (gender, race, ethnicity), because the dataset was built to study algorithmic fairness; we therefore report
-performance not only overall but also per demographic group.
+\subsection{The data}
+\paragraph{Contents.}
+The release holds 5{,}000 samples in a fixed split of 3{,}000 training and 2{,}000 test samples. Each sample is one \texttt{.npz} file with the two images (\texttt{slo\_fundus} and \texttt{oct\_fundus}; each $224\times224$, 8-bit, single channel),
+the label \texttt{glaucoma} (0 or 1), and patient attributes: age, gender, race, ethnicity, language, marital status and the visual-field mean deviation (MD). A CSV file indexes the split and the attributes. No segmentation masks are included, so the task is classification only.
 
-The project has three goals. (i)~Establish how well standard deep architectures solve the task, and in particular how much
-(a) ImageNet pretraining, (b) fusing the two modalities, and (c) the choice of architecture family (CNN,
-transformer, hybrid) matter. (ii)~Find out which training choices are worth their cost on a small dataset
-(2{,}550 training images after holding out validation data), where overfitting is the dominant difficulty. (iii)~Check
-whether common fairness interventions and ensembling change the picture. Because the test set is small
-(2{,}000 images), we pay particular attention to statistical uncertainty and avoid ranking models whose differences lie
-within it.
+\paragraph{What the images look like.}
+Figure~\ref{fig:samples} shows random samples of each class. Both modalities show the optic disc and the retinal vessels around it. The SLO fundus image is darker, with uneven illumination and dark patches; the OCT fundus image is brighter and smoother.
+The two modalities therefore differ clearly in appearance, but \emph{the two classes do not look different to the eye}, and simple intensity statistics do not separate them either: over 300 random training images the mean pixel value is 73 (no glaucoma) against 70 (glaucoma) for SLO,
+and 169 against 169 for OCT. The signal is subtle structural information that a model has to learn.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figs/samples.pdf}
+\caption{Randomly chosen training samples (seed 0, not hand-picked) for each class. Top row: SLO fundus; bottom row: OCT fundus. Under each pair: the patient's age and visual-field mean deviation (MD, dB). Blue frame: no glaucoma; orange frame: glaucoma.}
+\label{fig:samples}
+\end{figure}
+
+\paragraph{Labels and demographics.}
+Glaucoma is the positive class in 44\% of both splits (1{,}317 of 3{,}000 training and 887 of 2{,}000 test samples), a mild imbalance that is one reason we report AUC rather than accuracy. The demographic groups are strongly imbalanced (Table~\ref{tab:data}):
+73\% of samples are female, 77\% white, 16\% Black, 8\% Asian and 4\% Hispanic. Only 83 test images belong to Hispanic patients, so any estimate for that group is very noisy.
+
+\begin{table}[t]
+\centering\small
+\resizebox{\linewidth}{!}{\input{tables/dataset.tex}}
+\caption{Dataset composition. Percentages are of each split.}
+\label{tab:data}
+\end{table}
+
+\paragraph{Clinical variables.}
+MD summarises a visual-field test (in dB; 0 is normal, more negative means more field loss). It averages $0.1\pm0.8$ in non-glaucoma and $-8.2\pm5.7$ in glaucoma training samples, so it almost encodes the label: giving it to the model raises test AUC to 0.958 (Appendix~\ref{app:domain}).
+We treat it as a leakage risk and use it only in one clearly labelled upper-bound run, never in a reported comparison. Age differs by class (57.8 against 64.4 years on average) but adding it did not help (Appendix~\ref{app:domain}).
+
+\paragraph{What an engineer should keep in mind.}
+\begin{itemize}
+\item \textbf{Small data:} after holding out validation data only 2{,}550 training images remain, so overfitting is the main difficulty (Appendix~\ref{app:recipe}).
+\item \textbf{Small test set:} 2{,}000 images give AUC confidence intervals of about $\pm0.02$; differences smaller than that between two models are not meaningful.
+\item \textbf{No official validation set:} we hold out a stratified 15\% of the training images for all model and configuration selection (Section~\ref{sec:splits}).
+\item \textbf{Two different views:} a model trained on one modality transfers poorly to the other (Appendix~\ref{app:domain}), so the modalities must be handled separately and combined.
+\item \textbf{Fairness-aware evaluation:} results should be reported per demographic group, not only overall.
+\end{itemize}
+
+\paragraph{Our approach and result.}
+Our final model is an \emph{ensemble of eight ImageNet-pretrained two-branch EfficientNet-B0 networks}, one branch per modality, trained with five-fold cross-validation plus three runs on all training data, with horizontal-flip test-time averaging. It reaches a test AUC
+of 0.834 (95\% CI 0.816--0.852) against 0.717 for a from-scratch ResNet18 baseline. The main text describes only this model and the experiments that justify it; the other experiments (a 13-model backbone comparison, a training-recipe study with ablations, fusion variants, a foundation model, fairness losses,
+cross-domain transfer) are documented with their motivation and setup in the appendices.
 
 \paragraph{Contributions.}
-(1)~A controlled comparison of CNN, transformer and hybrid backbones and several fusion strategies (more than 50 training runs in three sweeps) on SLO+OCT glaucoma
-classification, with bootstrap confidence intervals and per-group metrics.
-(2)~An ablation study of the training recipe that corrects one of our own hypotheses (Section~\ref{sec:abl}).
-(3)~Evidence that, at this data scale, averaging several models is the most reliable gain, whereas architecture choice and
-fairness-specific losses are not distinguishable from noise.
+(1)~A simple, strong pipeline for SLO+OCT glaucoma classification with bootstrap confidence intervals and per-group results.
+(2)~A controlled demonstration, on the same backbone and recipe, that using both modalities beats either alone (0.827 against 0.758 and 0.764).
+(3)~Evidence that averaging models trained on different data splits gains about 0.03 AUC over its members.
+(4)~An honest account, in the appendices, of what did \emph{not} help, including a hypothesis of ours that the ablations refuted.
 
 %==============================================================================
 \section{Related Work}
@@ -73,39 +104,26 @@ a fair identity attention (FIA) module. Group-wise AUC, worst-group AUC and equi
 FairEnc~\cite{fairenc} builds a fair vision--language model on SLO images paired with clinical notes, Fair-Eye
 Net~\cite{faireyenet} combines fundus photographs, OCT-derived metrics and visual-field indices with a fairness constraint, and
 RED-Sphere~\cite{redsphere} targets cross-population domain generalisation for fundus disease. We did not
-reproduce these methods; they motivate our use of per-group evaluation and of the two image types as separate domains.
+reproduce these methods; they motivate our per-group evaluation.
 
 \paragraph{Backbones and training techniques.}
-We compare residual networks~\cite{resnet}, EfficientNet~\cite{efficientnet}, DenseNet~\cite{densenet}, RegNet~\cite{regnet} and
-ConvNeXt~\cite{convnext} (convolutional); ViT~\cite{vit}, DeiT~\cite{deit} and Swin~\cite{swin} (transformers); and
-CoAtNet~\cite{coatnet} and MaxViT~\cite{maxvit} (convolution--attention hybrids), plus a self-supervised DINOv2 ViT~\cite{dinov2}.
-Pretrained weights are the default \texttt{timm} checkpoints~\cite{timm}: ImageNet-1k~\cite{imagenet} for most models, ImageNet-21k$\to$1k for ViT-Small, ImageNet-12k$\to$1k for ConvNeXt-Tiny, and the self-supervised LVD-142M data for DINOv2. The regularisers we study
-are mixup~\cite{mixup}, CutMix~\cite{cutmix}, stochastic depth (drop-path)~\cite{stochdepth}, label smoothing~\cite{labelsmooth} and
-weight averaging (EMA). For adversarial debiasing we use a gradient-reversal layer~\cite{grl}.
+Our final model uses EfficientNet~\cite{efficientnet} backbones with ImageNet~\cite{imagenet} pretraining from the \texttt{timm} library~\cite{timm}.
+We also evaluated residual networks~\cite{resnet}, DenseNet~\cite{densenet}, RegNet~\cite{regnet}, ConvNeXt~\cite{convnext}, ViT~\cite{vit}, DeiT~\cite{deit}, Swin~\cite{swin},
+CoAtNet~\cite{coatnet}, MaxViT~\cite{maxvit} and DINOv2~\cite{dinov2} (Appendix~\ref{app:backbones}). The regularisers and training tools involved are
+AdamW~\cite{adamw} with a one-cycle schedule~\cite{onecycle}, label smoothing~\cite{labelsmooth}, stochastic depth (drop-path)~\cite{stochdepth}, and, in the appendices, mixup~\cite{mixup},
+CutMix~\cite{cutmix} and gradient reversal~\cite{grl}.
 
 %==============================================================================
 \section{Method}
 \subsection{Problem formulation}
 Each sample is a pair $(\mathbf{x}_S,\mathbf{x}_O)$ of $224\times224$ single-channel images (SLO fundus and OCT fundus),
-a binary label $y\in\{0,1\}$ (glaucoma), and demographic attributes $g$ (used only for evaluation, except in the
-fairness experiments). We learn $p(y=1\mid \mathbf{x}_S,\mathbf{x}_O)$.
+a binary label $y\in\{0,1\}$ (glaucoma), and demographic attributes $g$ used only for evaluation. We learn $p(y=1\mid \mathbf{x}_S,\mathbf{x}_O)$.
 
-\subsection{Architecture}
-Figure~\ref{fig:arch} shows our main model. Each modality is processed by its own backbone
-($f_S$, $f_O$, same architecture, separate weights, initialised from ImageNet), producing feature vectors
-$\mathbf{z}_S,\mathbf{z}_O$. The fusion module combines them and a dropout--linear head outputs the glaucoma logits.
-We study these fusion variants:
-\begin{itemize}
-\item \textbf{Late fusion (default):} $\mathbf{z}=[\mathbf{z}_S;\mathbf{z}_O]$.
-\item \textbf{Early fusion:} one backbone receives the two images as a 2-channel input.
-\item \textbf{Gated fusion:} $\mathbf{z}=\sigma(W[\mathbf{p}_S;\mathbf{p}_O])\odot \mathbf{p}_S+(1-\sigma(\cdot))\odot \mathbf{p}_O$ with projections
-$\mathbf{p}=W'\mathbf{z}$, trained with modality dropout (one modality's feature is zeroed for 20\% of samples).
-\item \textbf{Cross-attention fusion} (ViT-Small only): the token sequence of each modality attends to the other's tokens
-before the class tokens are concatenated.
-\item \textbf{Single modality:} one backbone sees only SLO or only OCT (an ablation).
-\end{itemize}
-Pretrained first-layer filters are adapted to one input channel by \texttt{timm} (summing the RGB filters).
-Pixels are scaled to $[0,1]$ and normalised as $(x-0.5)/0.25$.
+\subsection{Two-branch EfficientNet-B0}
+Figure~\ref{fig:arch} shows the network. Each modality is processed by its own EfficientNet-B0 backbone
+($f_S$, $f_O$; separate weights, initialised from ImageNet-1k, 4.0\,M parameters each). The pooled 1280-dimensional features
+are concatenated, passed through dropout (rate 0.5) and a linear layer, giving two logits. Pretrained first-layer filters are adapted to one input channel by \texttt{timm}.
+Pixels are scaled to $[0,1]$ and normalised as $(x-0.5)/0.25$. Appendix~\ref{app:fusion} describes the alternative fusion designs we tried (early, gated, cross-attention); none outperformed plain concatenation clearly enough to use.
 
 \begin{figure}[t]
 \centering
@@ -113,204 +131,171 @@ Pixels are scaled to $[0,1]$ and normalised as $(x-0.5)/0.25$.
 \begin{tikzpicture}[
   box/.style={draw,rounded corners=2pt,minimum height=0.95cm,align=center,font=\small,line width=0.6pt},
   inp/.style={box,fill=cgray!15,minimum width=2.5cm},
-  bb/.style={box,fill=cblue!18,draw=cblue,minimum width=2.7cm},
-  fus/.style={box,fill=corange!18,draw=corange,minimum width=3cm},
+  bb/.style={box,fill=cblue!18,draw=cblue,minimum width=2.9cm},
+  fus/.style={box,fill=corange!18,draw=corange,minimum width=2.3cm},
   hd/.style={box,fill=cgray!15,minimum width=2cm},
   outb/.style={box,fill=cgray!15,minimum width=2.6cm},
   arr/.style={-{Stealth[length=2mm]},line width=0.6pt}]
 \node[inp] (slo) at (0,1.05) {SLO fundus\\ $1{\times}224{\times}224$};
 \node[inp] (oct) at (0,-1.05) {OCT fundus\\ $1{\times}224{\times}224$};
-\node[bb] (fs) at (3.6,1.05) {Backbone $f_S$\\ \scriptsize (ImageNet-pretrained)};
-\node[bb] (fo) at (3.6,-1.05) {Backbone $f_O$\\ \scriptsize (ImageNet-pretrained)};
-\node[fus] (fu) at (7.5,0) {Fusion\\ \scriptsize concat / gated / cross-attn.};
-\node[hd] (hd) at (10.6,0) {Dropout\\ + Linear};
-\node[outb] (ou) at (13.4,0) {$P(\text{glaucoma})$};
+\node[bb] (fs) at (3.7,1.05) {EfficientNet-B0 $f_S$\\ \scriptsize (ImageNet-pretrained)};
+\node[bb] (fo) at (3.7,-1.05) {EfficientNet-B0 $f_O$\\ \scriptsize (ImageNet-pretrained)};
+\node[fus] (fu) at (7.6,0) {Concatenate\\ \scriptsize $2\times1280$};
+\node[hd] (hd) at (10.4,0) {Dropout 0.5\\ + Linear};
+\node[outb] (ou) at (13.2,0) {$P(\text{glaucoma})$};
 \draw[arr] (slo) -- (fs);
 \draw[arr] (oct) -- (fo);
 \draw[arr] (fs) -- node[above,sloped,font=\scriptsize]{$\mathbf z_S$} (fu.north west);
 \draw[arr] (fo) -- node[below,sloped,font=\scriptsize]{$\mathbf z_O$} (fu.south west);
 \draw[arr] (fu) -- (hd);
 \draw[arr] (hd) -- (ou);
-\node[box,dashed,draw=cgray,minimum width=3.4cm] (adv) at (7.5,-2.5) {\scriptsize Race adversary (gradient reversal)\\ \scriptsize optional fairness variant};
-\draw[arr,dashed,draw=cgray] (fu) -- (adv);
 \end{tikzpicture}}
-\caption{Two-branch late-fusion network. Each modality has its own backbone; the pooled features are fused and classified.
-Variants replace the fusion block (gated, cross-attention), feed both images to a single backbone as two channels (early fusion),
-use one branch only (single modality), or add an adversarial race head on the fused feature.}
+\caption{One ensemble member: a two-branch late-fusion network with an EfficientNet-B0 backbone per modality.}
 \label{fig:arch}
 \end{figure}
 
 \subsection{Training recipe}
-Our default \emph{plain} recipe (first sweep) uses cross-entropy, AdamW~\cite{adamw} with a one-cycle learning-rate
-schedule~\cite{onecycle}, gradient clipping at 1.0, 15 epochs, horizontal flips and mild brightness jitter. The
-\emph{stronger} recipe (later sweeps) adds, on the GPU: random rotation ($\pm15^\circ$), scaling ($\pm10\%$) and translation (up to 5\% of the image size);
-label smoothing 0.1; an exponential moving average (EMA) of the weights (decay 0.995) used for evaluation; a $5\times$ learning rate on the new
-head; and 25 epochs. Variants add mixup/CutMix, drop-path with rate 0.2 and head dropout 0.5, or a lower learning rate.
-The epoch with the best validation AUC is kept.
+Members are trained with cross-entropy with label smoothing 0.1 and AdamW~\cite{adamw} with a one-cycle schedule~\cite{onecycle} (peak learning rate $5\times10^{-4}$,
+$5\times$ larger for the new head, weight decay $10^{-2}$, batch size 32, 25 epochs, gradient clipping at 1.0). Regularisation consists of drop-path~\cite{stochdepth}
+with rate 0.2, head dropout 0.5, an exponential moving average (EMA) of the weights (decay 0.995) used for evaluation, and on-GPU augmentation:
+horizontal flips, rotation ($\pm15^\circ$), scaling ($\pm10\%$), translation (up to 5\% of the image size) and brightness/contrast jitter.
+This configuration was selected automatically from twelve runs of the recipe study by \emph{validation} AUC (Appendix~\ref{app:recipe}): it beat the plain recipe's
+validation AUC (0.852 against $0.832$ averaged over three seeds) by more than the seed-to-seed spread.
 
-\subsection{Fairness and domain-shift variants}
+\subsection{Ensemble and test-time augmentation}
+The final predictor averages the probabilities of eight members (Figure~\ref{fig:ens}):
 \begin{itemize}
-\item \textbf{Group-reweighted loss:} each sample is weighted by the inverse frequency of its (race, label) cell.
-\item \textbf{FIS-like loss:} per-sample weights equal to the product of the individual loss (relative to the batch mean) and its race group's mean loss
-(relative to the batch mean), clipped to $[0.2,5]$ and renormalised. This is our approximation of the idea behind Fair Identity Scaling~\cite{harvardeye}, not an exact reimplementation.
-\item \textbf{Adversarial debiasing:} a small classifier predicts race from the fused feature through a gradient-reversal layer~\cite{grl}
-(loss weight 0.5, reversal strength ramped up during training).
-\item \textbf{Cross-domain transfer:} one backbone is trained on one modality only and tested on the other (SLO$\to$OCT and OCT$\to$SLO), with the
-unseen modality fed through the same single-channel input.
+\item \textbf{Five cross-validation members.} The 3{,}000 training images are split into five stratified folds. Member $k$ trains on four folds (2{,}400 images) and uses the held-out fold (600 images) to choose its best epoch.
+\item \textbf{Three full-data members.} Three seeds trained on all 3{,}000 images, with no validation set; the final-epoch weights are used.
 \end{itemize}
+At test time each member's prediction is averaged with its prediction on the horizontally flipped image (test-time augmentation, TTA), and the member probabilities are averaged.
+The ensemble composition was fixed before looking at test results; it is one of four ensembles we evaluated (Appendix~\ref{app:ens}).
 
-\subsection{Ensembling and test-time augmentation}
-Ensembles average the predicted probabilities of several trained models. Test-time augmentation (TTA) averages a model's prediction on an image and on its horizontal flip.
-Ensemble members in each experiment are chosen on validation AUC or fixed in advance (e.g.\ all five folds), never on test AUC.
+\begin{figure}[t]
+\centering
+\resizebox{0.95\linewidth}{!}{%
+\begin{tikzpicture}[
+  box/.style={draw,rounded corners=2pt,minimum height=0.9cm,align=center,font=\small,line width=0.6pt},
+  arr/.style={-{Stealth[length=2mm]},line width=0.6pt}]
+\node[box,fill=cblue!18,draw=cblue,minimum width=5.2cm] (cv) at (0,0.95) {5 members: 5-fold cross-validation\\ \scriptsize train 2{,}400 / validate 600 each};
+\node[box,fill=cblue!18,draw=cblue,minimum width=5.2cm] (fd) at (0,-0.95) {3 members: different seeds\\ \scriptsize train on all 3{,}000, final epoch};
+\node[box,fill=cgray!15,minimum width=3.2cm] (tta) at (5.8,0) {Per member:\\ image + flipped image};
+\node[box,fill=corange!18,draw=corange,minimum width=3cm] (avg) at (9.6,0) {Average the 8\\ probabilities};
+\node[box,fill=cgray!15,minimum width=2.4cm] (out) at (12.9,0) {Final\\ $P(\text{glaucoma})$};
+\draw[arr] (cv) -- (tta.north west);
+\draw[arr] (fd) -- (tta.south west);
+\draw[arr] (tta) -- (avg);
+\draw[arr] (avg) -- (out);
+\end{tikzpicture}}
+\caption{The final ensemble: eight EfficientNet-B0 two-branch models, each evaluated on an image and its mirror image, with probabilities averaged.}
+\label{fig:ens}
+\end{figure}
 
 %==============================================================================
 \section{Experiments}
-\subsection{Data}
-We use the FairDomain release provided for this task: 5{,}000 samples (3{,}000 training, 2{,}000 testing), each stored as a
-\texttt{.npz} file with an SLO fundus image, an OCT fundus image (both $224\times224$, 8-bit), the label, and demographic and clinical
-attributes (age, gender, race, ethnicity, language, marital status, mean deviation MD). Segmentation masks are not included, so the task is classification.
-Table~\ref{tab:data} summarises the splits. The groups are strongly imbalanced (73\% female, 77\% white, 4\% Hispanic), which matters for per-group evaluation.
-From the 3{,}000 training images we hold out a stratified 15\% (450 images) as a \emph{validation} set used for early-stopping-style model selection and for all
-automatic hyper-parameter decisions; models are trained on the remaining 2{,}550 images. The 2{,}000 test images are never used for training or for automatic selection.
-
-\begin{table}[t]
-\centering\small
-\resizebox{\linewidth}{!}{\input{tables/dataset.tex}}
-\caption{Dataset composition. Percentages are of each split.}
-\label{tab:data}
-\end{table}
+\subsection{Data splits}\label{sec:splits}
+The data are described in Section~1.1 (Table~\ref{tab:data}). From the 3{,}000 training images we hold out a stratified 15\% (450 images) as a \emph{validation} set, used for model and configuration selection; the remaining 2{,}550 images train the
+single-run models. The five cross-validation members instead use five stratified folds of the 3{,}000 images, and the three full-data members use all of them. The 2{,}000 test images are never used for training or for automatic selection.
 
 \subsection{Implementation and hyper-parameters}
-All models are implemented in PyTorch~\cite{pytorch} with \texttt{timm}~\cite{timm} and trained in fp32 on a single Tesla P100 (16\,GB). Per-backbone learning rates, batch
-sizes and weight decay (chosen once from common defaults for each family, without tuning) are in Table~\ref{tab:hp}; the stronger recipe in later sweeps
-used EfficientNet-B0 with learning rate $5\times10^{-4}$, batch size 32 and weight decay $10^{-2}$ (head learning rate $\times5$) unless stated.
-Sweep~1 trains for 15 epochs, later sweeps for 25 (one 12-epoch variant, and 15 epochs for the approximate sweep-1 re-run).
-Model selection by validation AUC; seed 0 unless stated.
+All models are implemented in PyTorch~\cite{pytorch} with \texttt{timm}~\cite{timm} and trained in fp32 on a single Tesla P100 (16\,GB); one member trains in about 11--12 minutes. The hyper-parameters are those of Section~3.3 and are summarised in Table~\ref{tab:hp}.
 
 \begin{table}[t]
 \centering\small
-\input{tables/hparams.tex}
-\caption{Hyper-parameters of the first sweep (AdamW, one-cycle schedule, 15 epochs).}
+\begin{tabular}{lp{8.6cm}}
+\toprule
+Hyper-parameter & Value \\
+\midrule
+Backbone & EfficientNet-B0 $\times2$ (ImageNet-1k, \texttt{ra\_in1k} weights) \\
+Optimiser / schedule & AdamW, one-cycle (15\% warm-up), gradient clip 1.0 \\
+Learning rate (body / head) & $5\times10^{-4}$ / $2.5\times10^{-3}$ \\
+Weight decay, batch size, epochs & $10^{-2}$, 32, 25 \\
+Label smoothing, drop-path, head dropout & 0.1, 0.2, 0.5 \\
+EMA decay & 0.995 \\
+Augmentation & flip, rotation $\pm15^\circ$, scale $\pm10\%$, shift $\le5\%$, brightness/contrast jitter \\
+Test-time augmentation & horizontal flip \\
+\bottomrule
+\end{tabular}
+\caption{Hyper-parameters of every ensemble member.}
 \label{tab:hp}
 \end{table}
 
-\subsection{Evaluation protocol}
-The main metric is the area under the ROC curve (AUC) on the 2{,}000 test images, which is threshold-free and insensitive to the 44/56 class balance. We also report accuracy at threshold 0.5.
-To judge uncertainty we report non-parametric bootstrap 95\% confidence intervals over test images (300 resamples for per-run tables, 1{,}000 for ensembles and Figure~\ref{fig:overview}). Intervals are about $\pm0.02$ wide, so
-differences smaller than that between two runs are not meaningful. Where it matters we use three seeds to measure training noise.
-For fairness we report AUC within each gender, race and ethnicity group, the \emph{worst-group AUC} (minimum over gender and race groups with at least 100 test samples),
-and the equity-scaled AUC (ES-AUC)
+\subsection{Evaluation protocol}\label{sec:eval}
+The main metric is the area under the ROC curve (AUC) on the 2{,}000 test images, which is threshold-free and insensitive to the 44/56 class balance.
+To judge uncertainty we report non-parametric bootstrap 95\% confidence intervals over test images (1{,}000 resamples). Intervals are about $\pm0.02$ wide, so
+differences smaller than that between two models are not meaningful. For fairness we report AUC within each gender, race and ethnicity group, the \emph{worst-group AUC}
+(minimum over gender and race groups with at least 100 test samples), and the equity-scaled AUC (ES-AUC)
 \begin{equation}
 \text{ES-AUC}=\frac{\text{AUC}}{1+\sum_{g}\left|\text{AUC}-\text{AUC}_g\right|},
 \end{equation}
 computed separately per attribute (our implementation of the equity-scaled AUC used in the Harvard fairness benchmarks; absolute values may differ from the original definition).
 
 \subsection{Baselines}
-The reference baseline is a ResNet18 trained from scratch with the two-branch late-fusion design. The main comparison set is: pretrained ResNet50 (late and early fusion), EfficientNet-B0, DenseNet121, ConvNeXt-Tiny
-(CNN-type); ViT-Small, DeiT-Small, Swin-Tiny (transformers); CoAtNet-0 and MaxViT-Tiny (hybrids); and EfficientNet-B0 on SLO only or OCT only (single-modality baselines).
+\begin{itemize}
+\item \textbf{ResNet18 from scratch:} the same two-branch late-fusion design with random initialisation (plain recipe, 15 epochs).
+\item \textbf{Single-modality EfficientNet-B0:} the same backbone and plain recipe on SLO only and on OCT only.
+\item \textbf{Single two-branch EfficientNet-B0:} one run with the plain recipe (from our first backbone comparison) and one run with the final recipe.
+\item \textbf{Cross-validation members:} the five individual members, to measure the gain from ensembling on identical models.
+\end{itemize}
 
 \subsection{Results}
-\paragraph{Overall comparison.}
-Figure~\ref{fig:overview} and Table~\ref{tab:sweep1} (appendix) summarise the results. The from-scratch ResNet18 reaches 0.717 test AUC. Every pretrained model improves on it
-(0.747--0.827). EfficientNet-B0 is the best single model in the first sweep (0.827), followed by Swin-Tiny (0.807) and DenseNet121 (0.803); the transformer and hybrid models are in the same
-range as the CNNs (ViT-S 0.790, CoAtNet-0 0.793), and ConvNeXt-Tiny and ResNet50 are lower (0.767--0.768). Because the confidence intervals overlap almost entirely among the models between 0.79 and 0.83, we do not claim
-a winner among architecture families.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.82\linewidth]{figs/results_overview.pdf}
-\caption{Test AUC with bootstrap 95\% confidence intervals for the main single models, the baseline, and the best ensembles. Sweep~1 = plain recipe; ``+ recipe'' = stronger recipe (Section~3.3).}
-\label{fig:overview}
-\end{figure}
-
-\paragraph{Both modalities matter.}
-With the same EfficientNet-B0 backbone, SLO alone gives 0.758 and OCT alone 0.764, while fusing both gives 0.827 (Figure~\ref{fig:modality}). Cross-domain transfer is poor:
-a Swin-Tiny trained on SLO reaches 0.794 on SLO but only 0.677 on OCT, and the reverse gives 0.786 and 0.701 (Table~\ref{tab:sweep2}). The two images thus carry different information. Late fusion was slightly
-better than early fusion for ResNet50 (0.768 vs 0.747, within the confidence intervals).
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.48\linewidth]{figs/modality.pdf}
-\caption{Contribution of each modality (EfficientNet-B0, first sweep).}
-\label{fig:modality}
-\end{figure}
-
-\paragraph{Training recipe and what it taught us.}\label{sec:abl}
-All models overfit strongly: the plain EfficientNet-B0 reaches training loss $\approx 0.008$ while validation AUC saturates early
-(Figure~\ref{fig:overfit}). We therefore tried a stronger recipe (second and third sweeps). It did not help uniformly: Swin-Tiny was unchanged (0.808 $\pm$ 0.004 over three seeds, against 0.807 in sweep~1), but
-EfficientNet-B0 \emph{dropped} from 0.827 to $0.798\pm0.003$ (three seeds, Table~\ref{tab:sweep3}).
-We first suspected our EMA implementation, which copies batch-norm statistics from the live model instead of averaging them (a problem for batch-norm CNNs but not for the layer-norm Swin).
-A single-factor ablation (Table~\ref{tab:abl}) \emph{refuted} this: switching EMA off lowered AUC further (0.786), so EMA helps. The main culprit was the
-strong geometric augmentation: replacing rotation/scale/shift with flips and mild brightness jitter raised AUC from 0.798 to 0.819 ($\approx 7$ seed standard deviations), and a head learning rate of $1\times$ rather than $5\times$ gave a smaller gain (0.807).
-A plausible reason (not tested) is that the images are spatially registered, so geometric transformations may destroy position-dependent cues, but we have no direct evidence.
-Restoring all three choices (our approximate sweep-1 setup) gives 0.811, below the original 0.827, so some of the sweep-1 figure is probably favourable single-seed luck.
-Of the other regularisers, drop-path 0.2 with dropout 0.5 helped (0.817 against 0.798), whereas mixup/CutMix (0.800), a lower learning rate (0.790) and a shorter schedule (0.777) did not (Table~\ref{tab:sweep3}).
-The three ablations vary one factor each with one seed, and the 2{,}000-image test set limits resolution, so we treat the ordering of the effects as indicative. We did not run the combination of the helpful changes (flip-only augmentation, drop-path, head learning rate $1\times$).
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.85\linewidth]{figs/overfitting.pdf}
-\caption{EfficientNet-B0: training loss (log scale) and validation AUC. The stronger recipe's loss stays higher because of label smoothing and augmentation, but its validation AUC peaks around epoch 6 and then declines.}
-\label{fig:overfit}
-\end{figure}
-
-\begin{table}[t]
-\centering\small
-\resizebox{\linewidth}{!}{\input{tables/ablation.tex}}
-\caption{Single-factor ablations of the stronger recipe (EfficientNet-B0, one seed each; the recipe row is the three-seed mean). The last row is the original first-sweep run.}
-\label{tab:abl}
-\end{table}
-
-\paragraph{Ensembling.}
-Averaging models is the most consistent gain (Table~\ref{tab:ens}). The five-fold models score 0.789--0.808 individually (mean 0.800) and 0.830 together; the five diverse first-sweep models average 0.804 individually and reach 0.833 as an ensemble.
-The best ensemble (five folds plus three train+validation models) reaches 0.834 [0.816, 0.852]. Flip TTA adds 0.001--0.010. Note that ensembles only match the best single first-sweep run (0.827) within uncertainty, so their advantage is mostly in not depending on one lucky run.
-Training on all 3{,}000 images (no validation set) did not help single models (0.791--0.794); we used the final-epoch model there.
+Table~\ref{tab:main} and Figure~\ref{fig:main} give the main results.
 
 \begin{table}[t]
 \centering\footnotesize
 \setlength{\tabcolsep}{3pt}
-\resizebox{\linewidth}{!}{\input{tables/ensembles.tex}}
-\caption{Probability-averaging ensembles. Members were chosen in advance or by validation AUC.}
-\label{tab:ens}
+\resizebox{\linewidth}{!}{\input{tables/main_results.tex}}
+\caption{Main results on the 2{,}000 test images. ``Plain recipe'' = flips and mild jitter, 15 epochs; ``final recipe'' = Section~3.3. TTA = horizontal-flip test-time averaging.}
+\label{tab:main}
 \end{table}
 
-\paragraph{Fairness.}
-Performance is similar across gender and race groups (Table~\ref{tab:groups}): within-group AUCs differ by about 0.01--0.03 for most models, and ES-AUC for race is 0.75--0.82 (the highest, 0.821, for ensembles).
-The Hispanic group (83 test images) shows the largest and least stable differences (AUC 0.74--0.81 across models), which sampling noise on so few images could explain.
-The fairness-specific losses gave no consistent benefit (Table~\ref{tab:sweep2}, Swin-Tiny): the FIS-like loss and adversarial debiasing were within noise of the plain recipe (0.806 and 0.805 vs 0.808), and group reweighting was lower (0.787).
-On EfficientNet-B0 the adversarial variant scored 0.802 against 0.817 for the config it extends (Table~\ref{tab:sweep3}). Adding age as an input did not help (0.808).
-For reference, giving the model the visual-field mean deviation MD, a clinical measure closely tied to the label, raises AUC to 0.958, which shows how much of the label lives in that variable. We exclude it from every comparison.
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{figs/results_main.pdf}
+\caption{Test AUC with bootstrap 95\% confidence intervals for the baseline, single models and ensembles.}
+\label{fig:main}
+\end{figure}
+
+\paragraph{Both modalities matter.}
+With the same EfficientNet-B0 backbone and recipe, SLO alone reaches 0.758 and OCT alone 0.764, whereas fusing both reaches 0.827, a gain of about 0.06--0.07 that is well outside the confidence intervals. The two images carry different information
+(Appendix~\ref{app:domain} shows that a model trained on one modality transfers poorly to the other).
+
+\paragraph{Pretrained two-branch EfficientNets versus the baseline.}
+The from-scratch ResNet18 baseline reaches 0.717, whereas the pretrained two-branch EfficientNet-B0 reaches 0.817--0.827 in single runs. This difference mixes pretraining and architecture; Appendix~\ref{app:backbones}
+shows that every pretrained backbone we tried scored higher than the scratch baseline, but we did not train scratch versions of the other backbones, so we cannot attribute the gap to pretraining alone.
+
+\paragraph{Ensembling.}
+The five cross-validation members score $0.800\pm0.008$ individually (range 0.789--0.808). Averaging them gives 0.830, a gain of 0.030 on models that are otherwise identical. Adding the three full-data members gives the final 0.834 [0.816, 0.852];
+flip TTA adds a further 0.001. The ensemble is not clearly better than the best single run (0.827, plain recipe, one seed): that difference lies well inside the confidence intervals. The practical advantage is stability, because an ensemble does not depend on one fortunate run (Appendix~\ref{app:recipe}
+indicates that the 0.827 single run is probably favourable luck).
+
+\paragraph{Fairness across groups.}
+Table~\ref{tab:groups} shows AUC within each group. For the final ensemble, AUC is 0.82--0.86 across gender and race groups, with a worst-group AUC of 0.821, against 0.706 for the baseline. The ES-AUC for race is 0.802.
+The Hispanic group (83 test images) has the lowest AUC (0.806 for the ensemble) but its confidence interval is very wide, so we make no claim about it. Fairness-specific training losses did not help beyond this (Appendix~\ref{app:fair}).
 
 \begin{table}[t]
 \centering\footnotesize
 \setlength{\tabcolsep}{4pt}
-\resizebox{\linewidth}{!}{\input{tables/groups.tex}}
-\caption{Test AUC within demographic groups for representative models and ensembles.}
+\resizebox{\linewidth}{!}{\input{tables/groups_main.tex}}
+\caption{Test AUC within demographic groups.}
 \label{tab:groups}
 \end{table}
 
-\paragraph{Cost.}
-Single runs took from about 3 minutes (ResNet18) to 18 minutes (ConvNeXt-Tiny, 15 epochs) in sweep~1 and about 11--22 minutes in the later sweeps on the P100; EfficientNet-B0 was the cheapest of the strong models.
-
 \subsection{Limitations}
-(i)~The test set has 2{,}000 images, so confidence intervals are about $\pm0.02$; most differences in this report are within them.
-(ii)~Most results are from a single seed. (iii)~Automatic selection used validation data only, but we did read test results while planning later sweeps, so the later configurations are not entirely free of test-set influence.
-(iv)~The validation set (450 images) is itself noisy; Swin-Tiny had the best validation AUC in sweep~1 yet not the best test AUC.
-(v)~Our FIS-like loss and ES-AUC are our own implementations. (vi)~We did not implement the published FIN/FIS/FIA methods or compare to published numbers, and our data may differ from the full 10{,}000-sample FairDomain release.
+(i)~The test set has 2{,}000 images, so confidence intervals are about $\pm0.02$; the ensemble's lead over the best single model is within them.
+(ii)~We evaluated four ensemble compositions and report the one with the highest test AUC as the final model, so its figure is mildly optimistic (the four ranged from 0.816 to 0.834; Appendix~\ref{app:ens}).
+(iii)~Automatic selection used validation data only, but we read test results while planning later experiments.
+(iv)~The ablations in Appendix~\ref{app:recipe} found that replacing the geometric augmentation by flips alone raises single-model AUC by about 0.02; the final ensemble does not use that finding, because the ablation came after the ensemble was trained.
+(v)~ES-AUC is our own implementation. (vi)~We did not implement the published FIN/FIS/FIA methods or compare with published numbers.
 
 %==============================================================================
 \section{Conclusions}
-On this two-modality glaucoma classification task, the most important factors were \emph{using ImageNet-pretrained weights} (+0.03 to +0.11 AUC over a from-scratch baseline), \emph{using both modalities} (0.827 versus 0.758--0.764 for either alone), and
-\emph{averaging several models} (about +0.03 over a typical member). The choice of architecture family, fairness-specific losses and most extra regularisers made no difference that we can distinguish from noise
-on a 2{,}000-image test set. One recipe component, strong geometric augmentation, measurably hurt (about $-0.02$ AUC), and our hypothesis that EMA batch-norm statistics were responsible was wrong: EMA helped. All three
-ablations were single runs, and the sweep-1 EfficientNet result (0.827) is probably optimistic. Fairness gaps across gender and race were small; the Hispanic group is too small to judge.
+An ensemble of eight ImageNet-pretrained two-branch EfficientNet-B0 networks, one branch per imaging modality, trained on different data splits, reaches 0.834 test AUC (95\% CI 0.816--0.852) for glaucoma detection from SLO and OCT fundus images,
+against 0.717 for a from-scratch ResNet18 baseline. Using both modalities is worth about 0.06--0.07 AUC over either alone, and averaging models trained on different splits adds about 0.03 over its members. Performance is similar across gender and race groups.
 
-The strengths of our approach are its simplicity (standard pretrained backbones, two branches, probability averaging) and an evaluation that reports uncertainty and per-group results. Its weaknesses are the small data scale, limited seeds, and the absence of the published fairness methods for comparison.
-
-\paragraph{Future work.}
-(1)~Combine the helpful changes (flip-only augmentation, drop-path, head learning rate $1\times$, EMA) and test them with several seeds. (2)~Implement FIN, FIS and FIA faithfully and compare on the full dataset, and extend to the segmentation
-task if masks are available. (3)~Fine-tune retinal foundation models. (4)~Use the two image types as source and target domains with domain-adaptation methods, since transfer between them is poor.
-(5)~Use cross-validation over train and test to reduce the noise from a single 2{,}000-image test split.
+The strength of the approach is its simplicity: standard pretrained backbones, concatenation fusion and probability averaging. Its weaknesses are that the small test set cannot separate the ensemble from the best single model, that eight networks cost eight times as much to run, and
+that our best-found training recipe (flip-only augmentation) was identified too late to be included. \textbf{Future work:} combine the helpful recipe changes and test them with several seeds; implement FIN, FIS and FIA faithfully and compare on the full dataset;
+fine-tune retinal foundation models; treat the two image types as source and target domains with domain-adaptation methods, since transfer between them is poor; and use cross-validation over the full data to reduce noise from a single test split.
 
 %==============================================================================
 \begin{thebibliography}{99}\small
@@ -346,7 +331,184 @@ task if masks are available. (3)~Fine-tune retinal foundation models. (4)~Use th
 
 %==============================================================================
 \appendix
-\section{Full results of each sweep}
+\section{Overview of all experiments}\label{app:overview}
+Besides the final model we ran four batches of experiments (51 training runs plus ensembles) on the same data, split and validation protocol. Each batch had a question; Table~\ref{tab:overview} lists them and the following appendices give the details.
+All runs use the validation split described in Section~4.1 to choose the epoch; nothing was selected on test AUC automatically.
+
+\begin{table}[h]
+\centering\footnotesize
+\begin{tabular}{p{2.1cm}p{4.2cm}p{4.4cm}p{3.9cm}}
+\toprule
+Appendix & Question (motivation) & Setup & Main outcome \\
+\midrule
+\ref{app:backbones} Backbones & Which architecture family and which modality choice work best? & 13 configurations, plain recipe, 15 epochs & Pretrained 0.747--0.827 vs scratch 0.717; EfficientNet-B0 best (0.827); both modalities help \\
+\ref{app:recipe} Training recipe & How to fight overfitting on 2{,}550 images? & Stronger recipe on Swin-Tiny and EfficientNet-B0; mixup, drop-path, LR, schedule; 4 ablations & Drop-path helps (0.817 vs 0.798); strong geometric augmentation hurts (flip-only 0.819) \\
+\ref{app:fusion} Fusion / foundation & Is smarter fusion or a self-supervised ViT better? & Gated fusion, cross-attention, DINOv2-S on Swin-scale recipe & No gain: 0.812, 0.795, 0.809 vs $0.808\pm0.004$ \\
+\ref{app:fair} Fairness losses & Can fairness-aware training raise worst-group performance? & Group reweighting, FIS-like loss, adversarial race head & No consistent gain (0.787, 0.806, 0.805) \\
+\ref{app:domain} Domain shift, tabular & How different are the two modalities? Do clinical variables help? & Train on one modality, test on the other; add age / MD & Transfer 0.68--0.70; age no gain; MD 0.958 (not comparable) \\
+\ref{app:ens} Ensembles & Does averaging help, and which members? & Eight ensemble compositions, with and without TTA & 0.816--0.834 \\
+\bottomrule
+\end{tabular}
+\caption{The experiments behind and around the final model.}
+\label{tab:overview}
+\end{table}
+
+%------------------------------------------------------------------------------
+\section{Backbone and modality comparison (sweep 1)}\label{app:backbones}
+\paragraph{Motivation.} Before committing to a design we wanted to know how much pretraining, the architecture family (CNN, transformer, hybrid) and the use of both modalities matter.
+\paragraph{Setup.} Thirteen configurations were trained with the \emph{plain} recipe: cross-entropy, AdamW with a one-cycle schedule, 15 epochs, horizontal flips and mild brightness jitter, with the
+per-family learning rates in Table~\ref{tab:hp1}. Fusion was late (one backbone per modality) unless marked ``early'' (a 2-channel input to one backbone). Single-modality baselines use one branch only.
+Epochs are selected by validation AUC.
+
+\begin{table}[h]
+\centering\small
+\resizebox{0.6\linewidth}{!}{\input{tables/hparams.tex}}
+\caption{Hyper-parameters of the first sweep.}
+\label{tab:hp1}
+\end{table}
+
+\paragraph{Results.} Table~\ref{tab:sweep1} and Figure~\ref{fig:overview} show the results. Every pretrained model improved on the from-scratch ResNet18 (0.717): EfficientNet-B0 0.827, Swin-Tiny 0.807, DenseNet121 0.803, CoAtNet-0 0.793, ViT-Small 0.790,
+MaxViT-Tiny 0.778, DeiT-Small 0.768, ResNet50 0.768 (early fusion 0.747) and ConvNeXt-Tiny 0.767. The confidence intervals of the models between 0.79 and 0.83 overlap almost entirely, so no architecture family is established as best.
+Modality: with EfficientNet-B0, SLO alone gives 0.758, OCT alone 0.764 and both 0.827 (Figure~\ref{fig:modality}). Late fusion was slightly better than early fusion for ResNet50 (0.768 vs 0.747, within the intervals).
+Swin-Tiny had the best \emph{validation} AUC (0.844) but not the best test AUC, a reminder that the 450-image validation set is itself noisy; this is why the training-recipe study (Appendix~\ref{app:recipe}) uses seeds.
+\paragraph{Takeaway.} Pretrained, two-modality models work; the choice of family is secondary. We took EfficientNet-B0 forward because it was the best and the cheapest strong model (about 5 minutes per run).
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\linewidth]{figs/results_overview.pdf}
+\caption{Test AUC with bootstrap 95\% confidence intervals for the main single models and the best ensembles.}
+\label{fig:overview}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.48\linewidth]{figs/modality.pdf}
+\caption{Contribution of each modality (EfficientNet-B0, plain recipe).}
+\label{fig:modality}
+\end{figure}
+
+%------------------------------------------------------------------------------
+\section{Training recipe study and ablations (sweeps 2--3)}\label{app:recipe}
+\paragraph{Motivation.} All models overfit: the plain EfficientNet-B0 reaches a training loss of about 0.008 while validation AUC stops improving early (Figure~\ref{fig:overfit}). We therefore tried to regularise harder.
+\paragraph{Setup.} The \emph{stronger recipe} adds on-GPU geometric augmentation (rotation $\pm15^\circ$, scale $\pm10\%$, shift $\le5\%$), label smoothing 0.1, an EMA of the weights, a $5\times$ learning rate on the new head, and 25 epochs.
+It was first applied to Swin-Tiny (the backbone with the best validation AUC in sweep 1), with three seeds, and then to EfficientNet-B0 with variants: a 12-epoch schedule, mixup/CutMix, drop-path 0.2 with head dropout 0.5, a lower learning rate ($2\times10^{-4}$), and gated fusion;
+plus four neighbouring backbones (EfficientNet-B2/B3, RegNetY-016, DenseNet121). The configuration for the final model was chosen by a fixed rule on validation AUC: a challenger replaces the plain stronger recipe only if its validation AUC exceeds the three-seed mean
+by more than $\max(0.005,\ \text{seed s.d.})$. Drop-path won (0.852 against $0.832$ mean, margin 0.013).
+
+\paragraph{Results.} Table~\ref{tab:sweep3} (full list) and Table~\ref{tab:abl} summarise this. The stronger recipe did not help uniformly: Swin-Tiny was unchanged ($0.808\pm0.004$ over three seeds, against 0.807 in sweep 1), but EfficientNet-B0 \emph{dropped} from 0.827 to $0.798\pm0.003$.
+Drop-path with dropout helped (0.817), while mixup/CutMix (0.800), a lower learning rate (0.790) and a shorter schedule (0.777) did not; the other backbones were no better than EfficientNet-B0 (B2 0.796, B3 0.779, RegNetY-016 0.807, DenseNet121 0.781).
+
+\paragraph{Ablation: why did the recipe hurt EfficientNet?} We first suspected our EMA implementation, which copies batch-norm statistics from the live model instead of averaging them (harmful for batch-norm CNNs but not for the layer-norm Swin). We ran four single-factor ablations (one seed each; Table~\ref{tab:abl}).
+Switching EMA \emph{off} lowered AUC (0.786), so the hypothesis was \emph{refuted}: EMA helps. The main culprit was the strong geometric augmentation: flips and mild jitter alone raised AUC from 0.798 to 0.819 (about 7 seed standard deviations), and a head learning rate of $1\times$ gave a smaller gain (0.807).
+A plausible but untested reason is that the images are spatially registered, so rotations and shifts may destroy position-dependent cues. Restoring all three choices (our approximate sweep-1 setup) gives 0.811, below the original 0.827, so part of that figure is probably single-seed luck.
+The ablations vary one factor each with a single seed, so the ordering of their effects is indicative. We did not run the combination of the helpful changes (flip-only augmentation, drop-path, head learning rate $1\times$); this is the most promising next experiment.
+\paragraph{Takeaway.} Regularisation matters but most standard tools did nothing; drop-path was the one clear win among those tried, and geometric augmentation was harmful.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\linewidth]{figs/overfitting.pdf}
+\caption{EfficientNet-B0: training loss (log scale) and validation AUC. The stronger recipe's loss stays higher because of label smoothing and augmentation, but its validation AUC peaks around epoch 6 and then declines.}
+\label{fig:overfit}
+\end{figure}
+
+\begin{table}[h]
+\centering\small
+\resizebox{\linewidth}{!}{\input{tables/ablation.tex}}
+\caption{Single-factor ablations of the stronger recipe (EfficientNet-B0, one seed each; the recipe row is the three-seed mean). The last row is the original first-sweep run.}
+\label{tab:abl}
+\end{table}
+
+%------------------------------------------------------------------------------
+\section{Fusion variants and a foundation model (sweep 2)}\label{app:fusion}
+\paragraph{Motivation.} Plain concatenation may not be the best way to combine two modalities, and a large self-supervised model might transfer better than ImageNet weights.
+\paragraph{Setup.} On the Swin-Tiny recipe (25 epochs): \emph{gated fusion} with modality dropout, $\mathbf{z}=\sigma(W[\mathbf{p}_S;\mathbf{p}_O])\odot \mathbf{p}_S+(1-\sigma(\cdot))\odot \mathbf{p}_O$ with $\mathbf{p}=W'\mathbf{z}$
+(one modality's feature zeroed for 20\% of training samples); \emph{cross-attention fusion} with ViT-Small (each modality's tokens attend to the other's before the class tokens are concatenated); and a fine-tuned \emph{DINOv2-Small}~\cite{dinov2} with late fusion. Figure~\ref{fig:variants} sketches the variants.
+\paragraph{Results.} (Table~\ref{tab:sweep2}.) Gated fusion 0.812, cross-attention 0.795 and DINOv2 0.809, against $0.808\pm0.004$ for plain concatenation: no variant is distinguishable from the baseline. A gated variant on EfficientNet-B0 scored 0.810 against 0.798.
+\paragraph{Takeaway.} Plain concatenation is sufficient at this data scale, so the final model keeps it.
+
+\begin{figure}[h]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  box/.style={draw,rounded corners=2pt,minimum height=0.95cm,align=center,font=\small,line width=0.6pt},
+  inp/.style={box,fill=cgray!15,minimum width=2.5cm},
+  bb/.style={box,fill=cblue!18,draw=cblue,minimum width=2.7cm},
+  fus/.style={box,fill=corange!18,draw=corange,minimum width=3cm},
+  hd/.style={box,fill=cgray!15,minimum width=2cm},
+  outb/.style={box,fill=cgray!15,minimum width=2.6cm},
+  arr/.style={-{Stealth[length=2mm]},line width=0.6pt}]
+\node[inp] (slo) at (0,1.05) {SLO fundus\\ $1{\times}224{\times}224$};
+\node[inp] (oct) at (0,-1.05) {OCT fundus\\ $1{\times}224{\times}224$};
+\node[bb] (fs) at (3.6,1.05) {Backbone $f_S$\\ \scriptsize (ImageNet-pretrained)};
+\node[bb] (fo) at (3.6,-1.05) {Backbone $f_O$\\ \scriptsize (ImageNet-pretrained)};
+\node[fus] (fu) at (7.5,0) {Fusion\\ \scriptsize concat / gated / cross-attn.};
+\node[hd] (hd) at (10.6,0) {Dropout\\ + Linear};
+\node[outb] (ou) at (13.4,0) {$P(\text{glaucoma})$};
+\draw[arr] (slo) -- (fs);
+\draw[arr] (oct) -- (fo);
+\draw[arr] (fs) -- node[above,sloped,font=\scriptsize]{$\mathbf z_S$} (fu.north west);
+\draw[arr] (fo) -- node[below,sloped,font=\scriptsize]{$\mathbf z_O$} (fu.south west);
+\draw[arr] (fu) -- (hd);
+\draw[arr] (hd) -- (ou);
+\node[box,dashed,draw=cgray,minimum width=3.4cm] (adv) at (7.5,-2.5) {\scriptsize Race adversary (gradient reversal)\\ \scriptsize optional fairness variant};
+\draw[arr,dashed,draw=cgray] (fu) -- (adv);
+\end{tikzpicture}}
+\caption{Variants evaluated in the appendices: the fusion block is replaced by gated or cross-attention fusion; a single backbone with a 2-channel input (early fusion) or with one modality only; an adversarial race head on the fused feature.}
+\label{fig:variants}
+\end{figure}
+
+%------------------------------------------------------------------------------
+\section{Fairness-aware training and per-group results (sweep 2)}\label{app:fair}
+\paragraph{Motivation.} The data are demographically imbalanced, and fairness-aware losses are a central theme of the dataset literature~\cite{harvardgf,harvardeye,fairdomain}.
+\paragraph{Setup.} On the Swin-Tiny recipe: (i)~\emph{group reweighting}: each sample is weighted by the inverse frequency of its (race, label) cell; (ii)~a \emph{FIS-like loss}: per-sample weights equal to the product of the individual loss (relative to the batch mean) and its race group's mean loss
+(relative to the batch mean), clipped to $[0.2,5]$ and renormalised, which is our approximation of the idea behind Fair Identity Scaling~\cite{harvardeye} and not an exact reimplementation; (iii)~\emph{adversarial debiasing}: a small classifier predicts race from the fused feature through a gradient-reversal layer~\cite{grl}
+(loss weight 0.5). The adversarial variant was repeated on EfficientNet-B0.
+\paragraph{Results.} (Table~\ref{tab:sweep2}.) The FIS-like loss (0.806) and adversarial debiasing (0.805) were within noise of the plain recipe (0.808); group reweighting was lower (0.787). On EfficientNet-B0 the adversarial variant scored 0.802 against 0.817 for the configuration it extends.
+Table~\ref{tab:groupsall} shows within-group AUC for representative models and ensembles. Differences between gender and race groups are about 0.01--0.03 for most models; the Hispanic group (83 test images) shows the largest and least stable differences (0.74--0.81), which sampling noise could explain.
+\paragraph{Takeaway.} No fairness-specific loss gave a reliable benefit; the best group-level behaviour came from ensembling.
+
+\begin{table}[h]
+\centering\footnotesize
+\setlength{\tabcolsep}{4pt}
+\resizebox{\linewidth}{!}{\input{tables/groups.tex}}
+\caption{Test AUC within demographic groups for representative models and ensembles.}
+\label{tab:groupsall}
+\end{table}
+
+%------------------------------------------------------------------------------
+\section{Domain shift and tabular inputs (sweep 2)}\label{app:domain}
+\paragraph{Motivation.} FairDomain treats image types as domains~\cite{fairdomain}. If SLO and OCT carry different information, a model trained on one should transfer poorly to the other, which would explain why fusion helps. Separately, we asked whether clinical variables add anything.
+\paragraph{Setup.} \emph{Cross-domain:} a single Swin-Tiny branch is trained on one modality only and evaluated on the same modality and on the other (fed through the same single-channel input). \emph{Tabular:} age (and, as an upper bound, the visual-field mean deviation MD) is passed through a small MLP and concatenated to the fused feature.
+\paragraph{Results.} (Table~\ref{tab:sweep2}.) Trained on SLO, the model reaches 0.794 on SLO but 0.677 on OCT; trained on OCT, 0.786 on OCT and 0.701 on SLO. Adding age gave 0.808, no change. Adding MD raises AUC to 0.958, because MD is a clinical measure closely tied to the label; it is not a fair comparison and is excluded from every other comparison.
+\paragraph{Takeaway.} The two modalities are complementary (and domain adaptation between them is an open problem); age adds nothing.
+
+\begin{table}[h]
+\centering\footnotesize
+\setlength{\tabcolsep}{3pt}
+\resizebox{\linewidth}{!}{\input{tables/sweep2.tex}}
+\caption{Sweep 2: stronger recipe on Swin-Tiny, 25 epochs. The ``+ age and MD'' row is an upper bound and not a fair comparison.}
+\label{tab:sweep2}
+\end{table}
+
+%------------------------------------------------------------------------------
+\section{Ensembles and test-time augmentation}\label{app:ens}
+\paragraph{Motivation.} With strong overfitting and noisy single runs, averaging models is the natural way to reduce variance.
+\paragraph{Setup.} We averaged probabilities of (a)~the sweep-1 checkpoints (five diverse models, ten pretrained fusion models, the top three by validation AUC, and a greedy selection on validation AUC), and (b)~EfficientNet-B0 models of the final configuration: the five cross-validation members,
+three seeds trained on all 3{,}000 images, both together (the final model), and the top three configurations of the recipe study. Members were chosen in advance or by validation AUC. Each is also reported with flip TTA.
+\paragraph{Results.} (Table~\ref{tab:ens}.) The ensembles range from 0.816 to 0.834 test AUC; the five diverse sweep-1 models and the final eight-model ensemble are tied (0.833 and 0.834) within the intervals. Flip TTA adds 0.001--0.010. The three full-data members alone scored 0.791--0.794 individually, no better than single models trained on the 2{,}550-image split,
+so training on more data did not help single models; the full-data models helped the ensemble slightly (0.830 to 0.834).
+\paragraph{Takeaway.} Ensembling is the most reliable gain (about +0.03 over the members); the exact composition matters little. We chose the eight-member ensemble because it uses a single, validation-selected configuration; being the highest of the compositions tried, its figure is mildly optimistic.
+
+\begin{table}[h]
+\centering\footnotesize
+\setlength{\tabcolsep}{3pt}
+\resizebox{\linewidth}{!}{\input{tables/ensembles.tex}}
+\caption{Probability-averaging ensembles. Members were chosen in advance or by validation AUC.}
+\label{tab:ens}
+\end{table}
+
+%------------------------------------------------------------------------------
+\section{Full result tables}
 \begin{table}[h]
 \centering\footnotesize
 \setlength{\tabcolsep}{3pt}
@@ -358,17 +520,11 @@ task if masks are available. (3)~Fine-tune retinal foundation models. (4)~Use th
 \begin{table}[h]
 \centering\footnotesize
 \setlength{\tabcolsep}{3pt}
-\resizebox{\linewidth}{!}{\input{tables/sweep2.tex}}
-\caption{Sweep 2: stronger recipe on Swin-Tiny (the backbone with the best validation AUC in sweep 1), 25 epochs. The ``+ age and MD'' row is an upper bound and not a fair comparison.}
-\label{tab:sweep2}
-\end{table}
-
-\begin{table}[h]
-\centering\footnotesize
-\setlength{\tabcolsep}{3pt}
 \resizebox{\linewidth}{!}{\input{tables/sweep3.tex}}
-\caption{Sweep 3: EfficientNet-B0 regularisation and backbone neighbours, 25 epochs unless stated. The drop-path configuration had the best validation AUC (0.852) and was used for the 5-fold and train+validation runs.}
+\caption{Sweep 3: EfficientNet-B0 regularisation and backbone neighbours, 25 epochs unless stated. The drop-path configuration had the best validation AUC (0.852) and was used for the cross-validation and full-data members of the final ensemble.}
 \label{tab:sweep3}
 \end{table}
+
+\paragraph{Compute.} Single runs took from about 3 minutes (ResNet18) to 18 minutes (ConvNeXt-Tiny, 15 epochs) in sweep 1 and about 11--22 minutes in the later sweeps on the P100; EfficientNet-B0 was the cheapest of the strong models.
 
 \end{document}

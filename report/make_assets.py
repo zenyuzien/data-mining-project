@@ -289,5 +289,78 @@ fig.tight_layout()
 fig.savefig(f"{FIG}/modality.pdf")
 plt.close(fig)
 
+
+# ============================================================================= MAIN-PAPER ASSETS (final model only)
+def rowinfo(label, p, ptta, kind, modal, pre, note=""):
+    ci = boot_ci(p)
+    m = metrics(p, Y, META, boot=10)
+    return dict(label=label, kind=kind, modal=modal, pre=pre, auc=float(roc_auc_score(Y, p)), lo=ci[0], hi=ci[1],
+                tta=None if ptta is None else float(roc_auc_score(Y, ptta)), es=m["es_auc_race"], worst=m["worst_group_auc"])
+
+final_members = ENS3["grand_cv5+trainval3"]["members"]
+cv_members = ENS3["cv5"]["members"]
+p_final = np.mean([probs(3, m) for m in final_members], 0)
+t_final = np.mean([probs(3, m, "test_tta") for m in final_members], 0)
+p_cv = np.mean([probs(3, m) for m in cv_members], 0)
+t_cv = np.mean([probs(3, m, "test_tta") for m in cv_members], 0)
+MAIN = [
+    rowinfo("ResNet18, two-branch, from scratch (baseline)", probs(1, "resnet18_scratch_late"), probs(1, "resnet18_scratch_late", "test_tta"), "Baseline", "SLO+OCT", "no"),
+    rowinfo("EfficientNet-B0, SLO only", probs(1, "efficientnet_b0_pt_slo"), probs(1, "efficientnet_b0_pt_slo", "test_tta"), "Single model", "SLO", "yes"),
+    rowinfo("EfficientNet-B0, OCT only", probs(1, "efficientnet_b0_pt_oct"), probs(1, "efficientnet_b0_pt_oct", "test_tta"), "Single model", "OCT", "yes"),
+    rowinfo("EfficientNet-B0, two-branch, plain recipe (one run)", probs(1, "efficientnet_b0_pt_late"), probs(1, "efficientnet_b0_pt_late", "test_tta"), "Single model", "SLO+OCT", "yes"),
+    rowinfo("EfficientNet-B0, two-branch, final recipe (one run)", probs(3, "eb0_droppath"), probs(3, "eb0_droppath", "test_tta"), "Single model", "SLO+OCT", "yes"),
+    rowinfo("Ensemble of the 5 cross-validation models", p_cv, t_cv, "Ensemble", "SLO+OCT", "yes"),
+    rowinfo("Final: ensemble of 8 models", p_final, t_final, "Ensemble", "SLO+OCT", "yes"),
+]
+cvs = np.array([S3[m]["test_auc"] for m in cv_members])
+tv = np.array([S3[m]["test_auc"] for m in final_members if "trainval" in m])
+NUM["cv_member_mean"], NUM["cv_member_sd"], NUM["cv_member_min"], NUM["cv_member_max"] = float(cvs.mean()), float(cvs.std(ddof=1)), float(cvs.min()), float(cvs.max())
+NUM["final"] = {k: MAIN[-1][k] for k in ("auc", "lo", "hi", "tta", "es", "worst")}
+NUM["cv5_ens"] = {k: MAIN[-2][k] for k in ("auc", "lo", "hi", "tta")}
+with open(f"{TAB}/main_results.tex", "w") as f:
+    f.write("\\begin{tabular}{lcrrrrr}\n\\toprule\nModel & Input & Test AUC & 95\\% CI & + flip TTA & ES-AUC race & Worst-group AUC \\\\\n\\midrule\n")
+    for i, r in enumerate(MAIN):
+        if i in (1, 5):
+            f.write("\\midrule\n")
+        f.write(f"{r['label']} & {r['modal']} & {r['auc']:.3f} & [{r['lo']:.3f}, {r['hi']:.3f}] & {f3(r['tta'])} & {r['es']:.3f} & {r['worst']:.3f} \\\\\n")
+        if i == 4:
+            f.write(f"\\quad five cross-validation members, mean $\\pm$ s.d. & SLO+OCT & {cvs.mean():.3f} $\\pm$ {cvs.std(ddof=1):.3f} & -- & -- & -- & -- \\\\\n")
+    f.write("\\bottomrule\n\\end{tabular}\n")
+
+# main figure: dot plot for the main rows
+fig, ax = plt.subplots(figsize=(6.4, 2.9))
+cols_k = {"Ensemble": ORANGE, "Single model": BLUE, "Baseline": GRAY}
+short = ["ResNet18 from scratch (baseline)", "EfficientNet-B0, SLO only", "EfficientNet-B0, OCT only",
+         "EfficientNet-B0 SLO+OCT, plain recipe", "EfficientNet-B0 SLO+OCT, final recipe", "Ensemble of 5 CV models", "Final: ensemble of 8 models"]
+for i, r in enumerate(MAIN):
+    y = len(MAIN) - 1 - i
+    ax.plot([r["lo"], r["hi"]], [y, y], color=cols_k[r["kind"]], lw=1.6, solid_capstyle="round", zorder=2)
+    ax.plot([r["auc"]], [y], "o", ms=6, color=cols_k[r["kind"]], mec="white", mew=1.2, zorder=3)
+    ax.text(r["hi"] + 0.003, y, f"{r['auc']:.3f}", va="center", fontsize=8, color=INK2)
+ax.set_yticks(range(len(MAIN)))
+ax.set_yticklabels(short[::-1], fontsize=8)
+ax.set_xlim(0.69, 0.885)
+ax.set_xlabel("Test AUC (point = estimate, line = bootstrap 95% CI)")
+ax.grid(axis="x", color="#e6e5e1", lw=0.6)
+ax.set_axisbelow(True)
+for k, c in cols_k.items():
+    ax.plot([], [], "o", color=c, label=k)
+ax.legend(frameon=False, loc="lower left", fontsize=8)
+fig.tight_layout()
+fig.savefig(f"{FIG}/results_main.pdf")
+plt.close(fig)
+
+# main per-group table (3 rows)
+sel_main = [("ResNet18 from scratch (baseline)", probs(1, "resnet18_scratch_late")),
+            ("EfficientNet-B0, final recipe (one run)", probs(3, "eb0_droppath")),
+            ("Final: ensemble of 8 models", p_final)]
+with open(f"{TAB}/groups_main.tex", "w") as f:
+    f.write("\\begin{tabular}{lrrrrrrr}\n\\toprule\n & Female & Male & Asian & Black & White & Non-Hisp. & Hispanic \\\\\n")
+    f.write(f"$n$ (test) & " + " & ".join(str(int(((META[c.split(':')[0]] == c.split(':')[1])).sum())) for c in cols) + " \\\\\n\\midrule\n")
+    for lab, p in sel_main:
+        g = metrics(p, Y, META, boot=10)["group_auc"]
+        f.write(f"{lab} & " + " & ".join(f3(g[c]["auc"]) for c in cols) + " \\\\\n")
+    f.write("\\bottomrule\n\\end{tabular}\n")
+
 json.dump(NUM, open(f"{OUT}/numbers.json", "w"), indent=2, default=float)
 print(json.dumps(NUM, indent=1, default=float))

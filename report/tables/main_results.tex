@@ -1,0 +1,16 @@
+\begin{tabular}{lcrrrrr}
+\toprule
+Model & Input & Test AUC & 95\% CI & + flip TTA & ES-AUC race & Worst-group AUC \\
+\midrule
+ResNet18, two-branch, from scratch (baseline) & SLO+OCT & 0.717 & [0.694, 0.739] & 0.725 & 0.696 & 0.706 \\
+\midrule
+EfficientNet-B0, SLO only & SLO & 0.758 & [0.736, 0.778] & 0.762 & 0.727 & 0.723 \\
+EfficientNet-B0, OCT only & OCT & 0.764 & [0.742, 0.784] & 0.771 & 0.750 & 0.753 \\
+EfficientNet-B0, two-branch, plain recipe (one run) & SLO+OCT & 0.827 & [0.808, 0.844] & 0.828 & 0.815 & 0.816 \\
+EfficientNet-B0, two-branch, final recipe (one run) & SLO+OCT & 0.817 & [0.797, 0.835] & 0.820 & 0.793 & 0.803 \\
+\quad five cross-validation members, mean $\pm$ s.d. & SLO+OCT & 0.800 $\pm$ 0.008 & -- & -- & -- & -- \\
+\midrule
+Ensemble of the 5 cross-validation models & SLO+OCT & 0.830 & [0.811, 0.848] & 0.831 & 0.807 & 0.820 \\
+Final: ensemble of 8 models & SLO+OCT & 0.834 & [0.816, 0.852] & 0.835 & 0.802 & 0.821 \\
+\bottomrule
+\end{tabular}

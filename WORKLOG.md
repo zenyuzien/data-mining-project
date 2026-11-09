@@ -85,3 +85,14 @@ Notes:
   head LR x1 0.807, flip-only aug 0.819 (strong geometric aug hurts), approx sweep-1 repro 0.811 (orig 0.827 likely optimistic).
 - LaTeX report: `report/report.tex` -> `report/report.pdf` (compiled with tectonic from `texenv/bin/tectonic`).
   Tables/figures are generated from raw results by `report/make_assets.py` (no hand-typed numbers in tables).
+
+## 11. Report restructured (2026-11-09)
+- Main text now covers only the best-result model (ensemble of 8 two-branch EfficientNet-B0, test AUC 0.834 [0.816, 0.852]);
+  all other experiments (backbones, recipe + ablations, fusion/DINOv2, fairness losses, domain shift/tabular, ensembles)
+  moved to appendices A-G with motivation / setup / results / takeaway. New assets: tables/main_results.tex, groups_main.tex, figs/results_main.pdf.
+- Not yet pushed to GitHub after this change.
+
+## 12. Introduction rewritten around the data (2026-11-09)
+- Intro now: task in 3 sentences, then "The data" (contents, sample images, labels/demographics, MD leakage, things an engineer should know).
+  New: `report/make_samples.py` -> `report/figs/samples.pdf`, `report/data_stats.json`. Data table moved to the intro; Sec 4.1 is now "Data splits".
+- Not yet pushed to GitHub (only report.pdf from the previous version was).
