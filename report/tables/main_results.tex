@@ -6,11 +6,12 @@ ResNet18, two-branch, from scratch (baseline) & SLO+OCT & 0.717 & [0.694, 0.739]
 \midrule
 EfficientNet-B0, SLO only & SLO & 0.758 & [0.736, 0.778] & 0.762 & 0.727 & 0.723 \\
 EfficientNet-B0, OCT only & OCT & 0.764 & [0.742, 0.784] & 0.771 & 0.750 & 0.753 \\
-EfficientNet-B0, two-branch, plain recipe (one run) & SLO+OCT & 0.827 & [0.808, 0.844] & 0.828 & 0.815 & 0.816 \\
-EfficientNet-B0, two-branch, final recipe (one run) & SLO+OCT & 0.817 & [0.797, 0.835] & 0.820 & 0.793 & 0.803 \\
-\quad five cross-validation members, mean $\pm$ s.d. & SLO+OCT & 0.800 $\pm$ 0.008 & -- & -- & -- & -- \\
 \midrule
-Ensemble of the 5 cross-validation models & SLO+OCT & 0.830 & [0.811, 0.848] & 0.831 & 0.807 & 0.820 \\
-Final: ensemble of 8 models & SLO+OCT & 0.834 & [0.816, 0.852] & 0.835 & 0.802 & 0.821 \\
+\textbf{Final: EfficientNet-B0, two-branch} & SLO+OCT & 0.827 & [0.808, 0.844] & 0.828 & 0.815 & 0.816 \\
+\midrule
+Same model, re-run with similar settings & SLO+OCT & 0.811 & [0.790, 0.830] & 0.814 & 0.792 & 0.804 \\
+Same architecture, stronger recipe + drop-path & SLO+OCT & 0.817 & [0.797, 0.835] & 0.820 & 0.793 & 0.803 \\
+Same architecture, stronger recipe, flips only & SLO+OCT & 0.819 & [0.799, 0.836] & 0.824 & 0.785 & 0.799 \\
+Same architecture, stronger recipe, 3 seeds (mean $\pm$ s.d.) & SLO+OCT & 0.798 $\pm$ 0.003 & -- & -- & -- & -- \\
 \bottomrule
 \end{tabular}

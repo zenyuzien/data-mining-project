@@ -168,31 +168,31 @@ for n in ("abl_noema", "abl_headlr1", "abl_flipaug", "abl_sweep1_repro"):
         NUM[n] = S3[n]["test_auc"]
 
 # ----------------------------------------------------------------------------- ensemble table + CIs
-ens_rows = []  # (label, kind, members_desc, p_plain, p_tta)
+ens_rows = []  # (label, source, n_members, p_plain, p_tta, member_test_aucs) -- only ensembles of at most 3 models
 t0_ens = {r["name"]: r for r in json.load(open(f"{ROOT}/results_t0/tier0.json")) if r["kind"] == "ensemble"}
-for n, lab in (("diverse5", "5 diverse first-sweep models"), ("all_pretrained_fusion", "10 pretrained fusion models"),
-               ("greedy_by_val", "greedy selection on validation (8 slots)"), ("top3_by_val", "top-3 by validation AUC")):
-    m = t0_ens[n]["members"]
-    ens_rows.append((lab, "Sweep 1 checkpoints", len(m), np.mean([probs(1, x) for x in m], 0), np.mean([probs(1, x, "test_tta") for x in m], 0)))
-for n, lab in (("cv5", "5-fold CV models (drop-path config)"), ("trainval3", "3 seeds trained on train+val"),
-               ("grand_cv5+trainval3", "5-fold + train+val seeds (8 models)"), ("tier12_top3", "top-3 of sweep-3 tiers 1--2 by validation")):
+m = t0_ens["top3_by_val"]["members"]
+ens_rows.append(("Top 3 of sweep 1 by validation AUC (Swin-T, ViT-S, DenseNet121)", "Sweep 1", len(m),
+                 np.mean([probs(1, x) for x in m], 0), np.mean([probs(1, x, "test_tta") for x in m], 0), [S1[x]["test_auc"] for x in m]))
+for n, lab in (("trainval3", "3 seeds trained on train+val (EfficientNet-B0)"), ("tier12_top3", "Top 3 of the recipe study by validation AUC")):
     m = ENS3[n]["members"]
-    ens_rows.append((lab, "Sweep 3", len(m), np.mean([probs(3, x) for x in m], 0), np.mean([probs(3, x, "test_tta") for x in m], 0)))
+    assert len(m) <= 3
+    ens_rows.append((lab, "Sweep 3", len(m), np.mean([probs(3, x) for x in m], 0), np.mean([probs(3, x, "test_tta") for x in m], 0),
+                     [S3[x]["test_auc"] for x in m]))
 ens_rows.sort(key=lambda r: -roc_auc_score(Y, r[3]))
 with open(f"{TAB}/ensembles.tex", "w") as f:
-    f.write("\\begin{tabular}{llrrrrr}\n\\toprule\nEnsemble (probability average) & Source & $n$ & Test AUC & 95\\% CI & TTA AUC & ES-AUC race \\\\\n\\midrule\n")
-    for lab, src, k, p, pt in ens_rows:
+    f.write("\\begin{tabular}{llrrrrr}\n\\toprule\nEnsemble (average of probabilities) & $n$ & Members' mean AUC & Test AUC & 95\\% CI & TTA AUC & ES-AUC race \\\\\n\\midrule\n")
+    for lab, src, k, p, pt, ma in ens_rows:
         ci = boot_ci(p)
-        m = metrics(p, Y, META, boot=10)
-        f.write(f"{lab} & {src} & {k} & {roc_auc_score(Y, p):.3f} & [{ci[0]:.3f}, {ci[1]:.3f}] & {roc_auc_score(Y, pt):.3f} & {m['es_auc_race']:.3f} \\\\\n")
+        mm = metrics(p, Y, META, boot=10)
+        f.write(f"{lab} & {k} & {np.mean(ma):.3f} & {roc_auc_score(Y, p):.3f} & [{ci[0]:.3f}, {ci[1]:.3f}] & {roc_auc_score(Y, pt):.3f} & {mm['es_auc_race']:.3f} \\\\\n")
     f.write("\\bottomrule\n\\end{tabular}\n")
-NUM["best_ens"] = {"label": ens_rows[0][0], "auc": float(roc_auc_score(Y, ens_rows[0][3])), "tta": float(roc_auc_score(Y, ens_rows[0][4]))}
+NUM["ens3"] = {r[0]: dict(auc=float(roc_auc_score(Y, r[3])), members_mean=float(np.mean(r[5]))) for r in ens_rows}
 
 # ----------------------------------------------------------------------------- per-group table
 sel = [("EfficientNet-B0 (sweep 1)", probs(1, "efficientnet_b0_pt_late")), ("Swin-T + recipe (sweep 2)", probs(2, "base_recipe")),
        ("EfficientNet-B0 + drop-path (sweep 3)", probs(3, "eb0_droppath")),
-       ("5-model ensemble (sweep 1)", [r for r in ens_rows if r[0].startswith("5 diverse")][0][3]),
-       ("8-model ensemble (sweep 3)", [r for r in ens_rows if r[0].startswith("5-fold + train")][0][3])]
+       ("3-model ensemble, top 3 of sweep 1", [r for r in ens_rows if r[1] == "Sweep 1"][0][3]),
+       ("3-model ensemble, top 3 of recipe study", [r for r in ens_rows if r[0].startswith("Top 3 of the recipe")][0][3])]
 cols = ["gender:female", "gender:male", "race:asian", "race:black", "race:white", "ethnicity:non-hispanic", "ethnicity:hispanic"]
 with open(f"{TAB}/groups.tex", "w") as f:
     f.write("\\begin{tabular}{lrrrrrrr}\n\\toprule\n & Female & Male & Asian & Black & White & Non-Hisp. & Hispanic \\\\\n")
@@ -218,9 +218,9 @@ items = []  # (label, auc, lo, hi, kind)
 def add(label, p, kind):
     ci = boot_ci(p)
     items.append((label, float(roc_auc_score(Y, p)), ci[0], ci[1], kind))
-for lab, src, k, p, pt in ens_rows:
-    if lab.startswith(("5 diverse", "5-fold + train", "5-fold CV", "10 pretrained")):
-        add(f"Ensemble: {lab.split(' (')[0]}", p, "Ensemble")
+for lab, src, k, p, pt, ma in ens_rows:
+    if lab.startswith(("Top 3 of the recipe", "Top 3 of sweep 1")):
+        add("3-model ensemble: " + ("recipe study top 3" if "recipe" in lab else "sweep-1 top 3"), p, "Ensemble")
 add("EfficientNet-B0 (sweep 1)", probs(1, "efficientnet_b0_pt_late"), "Single model")
 add("EfficientNet-B0 + drop-path", probs(3, "eb0_droppath"), "Single model")
 add("RegNetY-016 + recipe", probs(3, "regnety_016"), "Single model")
@@ -290,48 +290,40 @@ fig.savefig(f"{FIG}/modality.pdf")
 plt.close(fig)
 
 
-# ============================================================================= MAIN-PAPER ASSETS (final model only)
-def rowinfo(label, p, ptta, kind, modal, pre, note=""):
+# ============================================================================= MAIN-PAPER ASSETS (final model = single two-branch EfficientNet-B0, plain recipe)
+def rowinfo(label, p, ptta, kind, modal):
     ci = boot_ci(p)
     m = metrics(p, Y, META, boot=10)
-    return dict(label=label, kind=kind, modal=modal, pre=pre, auc=float(roc_auc_score(Y, p)), lo=ci[0], hi=ci[1],
+    return dict(label=label, kind=kind, modal=modal, auc=float(roc_auc_score(Y, p)), lo=ci[0], hi=ci[1],
                 tta=None if ptta is None else float(roc_auc_score(Y, ptta)), es=m["es_auc_race"], worst=m["worst_group_auc"])
 
-final_members = ENS3["grand_cv5+trainval3"]["members"]
-cv_members = ENS3["cv5"]["members"]
-p_final = np.mean([probs(3, m) for m in final_members], 0)
-t_final = np.mean([probs(3, m, "test_tta") for m in final_members], 0)
-p_cv = np.mean([probs(3, m) for m in cv_members], 0)
-t_cv = np.mean([probs(3, m, "test_tta") for m in cv_members], 0)
 MAIN = [
-    rowinfo("ResNet18, two-branch, from scratch (baseline)", probs(1, "resnet18_scratch_late"), probs(1, "resnet18_scratch_late", "test_tta"), "Baseline", "SLO+OCT", "no"),
-    rowinfo("EfficientNet-B0, SLO only", probs(1, "efficientnet_b0_pt_slo"), probs(1, "efficientnet_b0_pt_slo", "test_tta"), "Single model", "SLO", "yes"),
-    rowinfo("EfficientNet-B0, OCT only", probs(1, "efficientnet_b0_pt_oct"), probs(1, "efficientnet_b0_pt_oct", "test_tta"), "Single model", "OCT", "yes"),
-    rowinfo("EfficientNet-B0, two-branch, plain recipe (one run)", probs(1, "efficientnet_b0_pt_late"), probs(1, "efficientnet_b0_pt_late", "test_tta"), "Single model", "SLO+OCT", "yes"),
-    rowinfo("EfficientNet-B0, two-branch, final recipe (one run)", probs(3, "eb0_droppath"), probs(3, "eb0_droppath", "test_tta"), "Single model", "SLO+OCT", "yes"),
-    rowinfo("Ensemble of the 5 cross-validation models", p_cv, t_cv, "Ensemble", "SLO+OCT", "yes"),
-    rowinfo("Final: ensemble of 8 models", p_final, t_final, "Ensemble", "SLO+OCT", "yes"),
+    rowinfo("ResNet18, two-branch, from scratch (baseline)", probs(1, "resnet18_scratch_late"), probs(1, "resnet18_scratch_late", "test_tta"), "Baseline", "SLO+OCT"),
+    rowinfo("EfficientNet-B0, SLO only", probs(1, "efficientnet_b0_pt_slo"), probs(1, "efficientnet_b0_pt_slo", "test_tta"), "Other EfficientNet-B0 runs", "SLO"),
+    rowinfo("EfficientNet-B0, OCT only", probs(1, "efficientnet_b0_pt_oct"), probs(1, "efficientnet_b0_pt_oct", "test_tta"), "Other EfficientNet-B0 runs", "OCT"),
+    rowinfo("Final: EfficientNet-B0, two-branch", probs(1, "efficientnet_b0_pt_late"), probs(1, "efficientnet_b0_pt_late", "test_tta"), "Final model", "SLO+OCT"),
+    rowinfo("Same model, re-run with similar settings", probs(3, "abl_sweep1_repro"), probs(3, "abl_sweep1_repro", "test_tta"), "Other EfficientNet-B0 runs", "SLO+OCT"),
+    rowinfo("Same architecture, stronger recipe + drop-path", probs(3, "eb0_droppath"), probs(3, "eb0_droppath", "test_tta"), "Other EfficientNet-B0 runs", "SLO+OCT"),
+    rowinfo("Same architecture, stronger recipe, flips only", probs(3, "abl_flipaug"), probs(3, "abl_flipaug", "test_tta"), "Other EfficientNet-B0 runs", "SLO+OCT"),
 ]
-cvs = np.array([S3[m]["test_auc"] for m in cv_members])
-tv = np.array([S3[m]["test_auc"] for m in final_members if "trainval" in m])
-NUM["cv_member_mean"], NUM["cv_member_sd"], NUM["cv_member_min"], NUM["cv_member_max"] = float(cvs.mean()), float(cvs.std(ddof=1)), float(cvs.min()), float(cvs.max())
-NUM["final"] = {k: MAIN[-1][k] for k in ("auc", "lo", "hi", "tta", "es", "worst")}
-NUM["cv5_ens"] = {k: MAIN[-2][k] for k in ("auc", "lo", "hi", "tta")}
+NUM["final"] = {k: MAIN[3][k] for k in ("auc", "lo", "hi", "tta", "es", "worst")}
+all_eb0 = [S3[n]["test_auc"] for n in S3 if n.startswith(("eb0_", "abl_"))]
+NUM["eb0_other_runs_min"], NUM["eb0_other_runs_max"] = float(min(all_eb0)), float(max(all_eb0))
 with open(f"{TAB}/main_results.tex", "w") as f:
     f.write("\\begin{tabular}{lcrrrrr}\n\\toprule\nModel & Input & Test AUC & 95\\% CI & + flip TTA & ES-AUC race & Worst-group AUC \\\\\n\\midrule\n")
     for i, r in enumerate(MAIN):
-        if i in (1, 5):
+        if i in (1, 3, 4):
             f.write("\\midrule\n")
-        f.write(f"{r['label']} & {r['modal']} & {r['auc']:.3f} & [{r['lo']:.3f}, {r['hi']:.3f}] & {f3(r['tta'])} & {r['es']:.3f} & {r['worst']:.3f} \\\\\n")
-        if i == 4:
-            f.write(f"\\quad five cross-validation members, mean $\\pm$ s.d. & SLO+OCT & {cvs.mean():.3f} $\\pm$ {cvs.std(ddof=1):.3f} & -- & -- & -- & -- \\\\\n")
+        lab = r["label"] if i != 3 else "\\textbf{" + r["label"] + "}"
+        f.write(f"{lab} & {r['modal']} & {r['auc']:.3f} & [{r['lo']:.3f}, {r['hi']:.3f}] & {f3(r['tta'])} & {r['es']:.3f} & {r['worst']:.3f} \\\\\n")
+        if i == 6:
+            f.write(f"Same architecture, stronger recipe, 3 seeds (mean $\\pm$ s.d.) & SLO+OCT & {NUM['eb0_recipe_mean']:.3f} $\\pm$ {NUM['eb0_recipe_std']:.3f} & -- & -- & -- & -- \\\\\n")
     f.write("\\bottomrule\n\\end{tabular}\n")
 
-# main figure: dot plot for the main rows
 fig, ax = plt.subplots(figsize=(6.4, 2.9))
-cols_k = {"Ensemble": ORANGE, "Single model": BLUE, "Baseline": GRAY}
-short = ["ResNet18 from scratch (baseline)", "EfficientNet-B0, SLO only", "EfficientNet-B0, OCT only",
-         "EfficientNet-B0 SLO+OCT, plain recipe", "EfficientNet-B0 SLO+OCT, final recipe", "Ensemble of 5 CV models", "Final: ensemble of 8 models"]
+cols_k = {"Final model": ORANGE, "Other EfficientNet-B0 runs": BLUE, "Baseline": GRAY}
+short = ["ResNet18 from scratch (baseline)", "EfficientNet-B0, SLO only", "EfficientNet-B0, OCT only", "Final: EfficientNet-B0 SLO+OCT",
+         "Same model, re-run (similar settings)", "Stronger recipe + drop-path", "Stronger recipe, flips only"]
 for i, r in enumerate(MAIN):
     y = len(MAIN) - 1 - i
     ax.plot([r["lo"], r["hi"]], [y, y], color=cols_k[r["kind"]], lw=1.6, solid_capstyle="round", zorder=2)
@@ -350,10 +342,8 @@ fig.tight_layout()
 fig.savefig(f"{FIG}/results_main.pdf")
 plt.close(fig)
 
-# main per-group table (3 rows)
-sel_main = [("ResNet18 from scratch (baseline)", probs(1, "resnet18_scratch_late")),
-            ("EfficientNet-B0, final recipe (one run)", probs(3, "eb0_droppath")),
-            ("Final: ensemble of 8 models", p_final)]
+sel_main = [("ResNet18 from scratch (baseline)", probs(1, "resnet18_scratch_late")), ("EfficientNet-B0, SLO only", probs(1, "efficientnet_b0_pt_slo")),
+            ("EfficientNet-B0, OCT only", probs(1, "efficientnet_b0_pt_oct")), ("Final: EfficientNet-B0, two-branch", probs(1, "efficientnet_b0_pt_late"))]
 with open(f"{TAB}/groups_main.tex", "w") as f:
     f.write("\\begin{tabular}{lrrrrrrr}\n\\toprule\n & Female & Male & Asian & Black & White & Non-Hisp. & Hispanic \\\\\n")
     f.write(f"$n$ (test) & " + " & ".join(str(int(((META[c.split(':')[0]] == c.split(':')[1])).sum())) for c in cols) + " \\\\\n\\midrule\n")

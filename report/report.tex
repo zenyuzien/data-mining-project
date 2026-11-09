@@ -21,7 +21,7 @@
 \definecolor{cgray}{HTML}{8A8985}
 
 \title{Glaucoma Detection by Combining SLO and OCT Fundus Images:\\
-An Ensemble of Pretrained Two-Branch EfficientNets}
+A Pretrained Two-Branch EfficientNet}
 \author{Rushikesh}
 \date{November 2026}
 
@@ -78,15 +78,16 @@ We treat it as a leakage risk and use it only in one clearly labelled upper-boun
 \end{itemize}
 
 \paragraph{Our approach and result.}
-Our final model is an \emph{ensemble of eight ImageNet-pretrained two-branch EfficientNet-B0 networks}, one branch per modality, trained with five-fold cross-validation plus three runs on all training data, with horizontal-flip test-time averaging. It reaches a test AUC
-of 0.834 (95\% CI 0.816--0.852) against 0.717 for a from-scratch ResNet18 baseline. The main text describes only this model and the experiments that justify it; the other experiments (a 13-model backbone comparison, a training-recipe study with ablations, fusion variants, a foundation model, fairness losses,
-cross-domain transfer) are documented with their motivation and setup in the appendices.
+Our final model is a \emph{two-branch EfficientNet-B0}: one ImageNet-pretrained branch per modality, features concatenated, trained for 15 epochs with a plain recipe. It reaches a test AUC
+of 0.827 (95\% CI 0.808--0.844) against 0.717 for a from-scratch ResNet18 baseline. It was the best of 13 configurations on test AUC, so the figure is somewhat optimistic: other two-branch runs of the same architecture score 0.777--0.819
+(Section~4.5, Appendix~\ref{app:recipe}). The main text describes only this model and the experiments that justify it; the other experiments (a 13-model backbone comparison, a training-recipe study with ablations, fusion variants, a foundation model, fairness losses,
+cross-domain transfer, small ensembles) are documented with their motivation and setup in the appendices.
 
 \paragraph{Contributions.}
-(1)~A simple, strong pipeline for SLO+OCT glaucoma classification with bootstrap confidence intervals and per-group results.
+(1)~A simple and cheap pipeline (about 5 minutes per run) for SLO+OCT glaucoma classification, with bootstrap confidence intervals and per-group results.
 (2)~A controlled demonstration, on the same backbone and recipe, that using both modalities beats either alone (0.827 against 0.758 and 0.764).
-(3)~Evidence that averaging models trained on different data splits gains about 0.03 AUC over its members.
-(4)~An honest account, in the appendices, of what did \emph{not} help, including a hypothesis of ours that the ablations refuted.
+(3)~A training-recipe study in which stronger augmentation hurt, including a hypothesis of ours that the ablations refuted (appendices).
+(4)~A measure of how noisy single-run results are on this data (re-runs and seeds), which tells how much to trust small differences.
 
 %==============================================================================
 \section{Related Work}
@@ -107,9 +108,9 @@ cross-domain transfer) are documented with their motivation and setup in the app
   \end{itemize}
 \item \textbf{Models and tools we use.}
   \begin{itemize}
-  \item Final model: EfficientNet~\cite{efficientnet} with ImageNet~\cite{imagenet} weights from \texttt{timm}~\cite{timm}.
+  \item Final model: EfficientNet~\cite{efficientnet} with ImageNet~\cite{imagenet} weights from \texttt{timm}~\cite{timm}. Training: AdamW~\cite{adamw} with a one-cycle schedule~\cite{onecycle}.
   \item Also tested (Appendix~\ref{app:backbones}): ResNet~\cite{resnet}, DenseNet~\cite{densenet}, RegNet~\cite{regnet}, ConvNeXt~\cite{convnext}, ViT~\cite{vit}, DeiT~\cite{deit}, Swin~\cite{swin}, CoAtNet~\cite{coatnet}, MaxViT~\cite{maxvit}, DINOv2~\cite{dinov2}.
-  \item Training: AdamW~\cite{adamw}, one-cycle schedule~\cite{onecycle}, label smoothing~\cite{labelsmooth}, drop-path~\cite{stochdepth}. Appendices only: mixup~\cite{mixup}, CutMix~\cite{cutmix}, gradient reversal~\cite{grl}.
+  \item Appendices only: label smoothing~\cite{labelsmooth}, drop-path~\cite{stochdepth}, mixup~\cite{mixup}, CutMix~\cite{cutmix}, gradient reversal~\cite{grl}.
   \end{itemize}
 \end{itemize}
 
@@ -125,7 +126,7 @@ cross-domain transfer) are documented with their motivation and setup in the app
 \subsection{Two-branch EfficientNet-B0}
 \begin{itemize}
 \item One EfficientNet-B0 backbone per modality ($f_S$, $f_O$). Separate weights, initialised from ImageNet-1k, 4.0\,M parameters each (Figure~\ref{fig:arch}).
-\item The pooled features (1280 values per branch) are concatenated, then dropout (0.5), then one linear layer with two outputs.
+\item The pooled features (1280 values per branch) are concatenated, then dropout (0.3), then one linear layer with two outputs.
 \item \texttt{timm} adapts the pretrained first layer to one input channel.
 \item Pixels are scaled to $[0,1]$, then normalised as $(x-0.5)/0.25$.
 \item Other fusion designs (early, gated, cross-attention) did not clearly help (Appendix~\ref{app:fusion}).
@@ -147,7 +148,7 @@ cross-domain transfer) are documented with their motivation and setup in the app
 \node[bb] (fs) at (3.7,1.05) {EfficientNet-B0 $f_S$\\ \scriptsize (ImageNet-pretrained)};
 \node[bb] (fo) at (3.7,-1.05) {EfficientNet-B0 $f_O$\\ \scriptsize (ImageNet-pretrained)};
 \node[fus] (fu) at (7.6,0) {Concatenate\\ \scriptsize $2\times1280$};
-\node[hd] (hd) at (10.4,0) {Dropout 0.5\\ + Linear};
+\node[hd] (hd) at (10.4,0) {Dropout 0.3\\ + Linear};
 \node[outb] (ou) at (13.2,0) {$P(\text{glaucoma})$};
 \draw[arr] (slo) -- (fs);
 \draw[arr] (oct) -- (fo);
@@ -156,65 +157,39 @@ cross-domain transfer) are documented with their motivation and setup in the app
 \draw[arr] (fu) -- (hd);
 \draw[arr] (hd) -- (ou);
 \end{tikzpicture}}
-\caption{One ensemble member: a two-branch late-fusion network with an EfficientNet-B0 backbone per modality.}
+\caption{The final model: a two-branch late-fusion network with an EfficientNet-B0 backbone per modality.}
 \label{fig:arch}
 \end{figure}
 
-\subsection{Training recipe}
+\subsection{Training recipe (``plain recipe'')}
 \begin{itemize}
-\item Loss: cross-entropy with label smoothing 0.1.
-\item Optimiser: AdamW with a one-cycle schedule. Peak learning rate $5\times10^{-4}$ ($5\times$ larger for the new head), weight decay $10^{-2}$, batch size 32, 25 epochs, gradient clipping 1.0.
-\item Regularisation: drop-path 0.2, head dropout 0.5, and an exponential moving average (EMA) of the weights (decay 0.995) used for evaluation.
-\item Augmentation (on GPU): horizontal flip, rotation $\pm15^\circ$, scale $\pm10\%$, shift up to 5\% of the image size, brightness and contrast jitter.
-\item The best epoch (by validation AUC) is kept.
-\item This recipe was picked automatically, by validation AUC, from twelve runs of the recipe study (Appendix~\ref{app:recipe}). Its validation AUC was 0.852, against 0.832 for the plain recipe (mean of 3 seeds). The gain was larger than the seed-to-seed spread.
+\item Loss: cross-entropy.
+\item Optimiser: AdamW with a one-cycle schedule (15\% warm-up). Learning rate $5\times10^{-4}$, weight decay $10^{-2}$, batch size 32, 15 epochs, gradient clipping 1.0.
+\item Augmentation: random horizontal flip and mild brightness/contrast jitter. Nothing else.
+\item No EMA, no label smoothing, no drop-path.
+\item The epoch with the best validation AUC is kept (epoch 13 of 15).
+\item Stronger recipes (more augmentation, EMA, label smoothing, drop-path, mixup) were tried later and did not beat this one reliably (Appendix~\ref{app:recipe}).
 \end{itemize}
 
-\subsection{Ensemble and test-time augmentation}
+\subsection{Test-time augmentation}
 \begin{itemize}
-\item The final prediction is the average of the probabilities of 8 models (Figure~\ref{fig:ens}):
-  \begin{itemize}
-  \item \textbf{5 cross-validation members.} The 3{,}000 training images are split into 5 stratified folds. Each member trains on 4 folds (2{,}400 images) and uses the held-out fold (600 images) to choose its best epoch.
-  \item \textbf{3 full-data members.} Three seeds, trained on all 3{,}000 images, with no validation set. The final-epoch weights are used.
-  \end{itemize}
-\item Test-time augmentation (TTA): each member's prediction is averaged with its prediction on the horizontally flipped image.
-\item The ensemble was defined before any test result was seen. It is one of four ensembles evaluated in sweep 3 (Appendix~\ref{app:ens}).
+\item Optional: average the prediction on an image with the prediction on its horizontal flip.
+\item We report it in a separate column. The headline number does \emph{not} use it.
 \end{itemize}
-
-\begin{figure}[t]
-\centering
-\resizebox{0.95\linewidth}{!}{%
-\begin{tikzpicture}[
-  box/.style={draw,rounded corners=2pt,minimum height=0.9cm,align=center,font=\small,line width=0.6pt},
-  arr/.style={-{Stealth[length=2mm]},line width=0.6pt}]
-\node[box,fill=cblue!18,draw=cblue,minimum width=5.2cm] (cv) at (0,0.95) {5 members: 5-fold cross-validation\\ \scriptsize train 2{,}400 / validate 600 each};
-\node[box,fill=cblue!18,draw=cblue,minimum width=5.2cm] (fd) at (0,-0.95) {3 members: different seeds\\ \scriptsize train on all 3{,}000, final epoch};
-\node[box,fill=cgray!15,minimum width=3.2cm] (tta) at (5.8,0) {Per member:\\ image + flipped image};
-\node[box,fill=corange!18,draw=corange,minimum width=3cm] (avg) at (9.6,0) {Average the 8\\ probabilities};
-\node[box,fill=cgray!15,minimum width=2.4cm] (out) at (12.9,0) {Final\\ $P(\text{glaucoma})$};
-\draw[arr] (cv) -- (tta.north west);
-\draw[arr] (fd) -- (tta.south west);
-\draw[arr] (tta) -- (avg);
-\draw[arr] (avg) -- (out);
-\end{tikzpicture}}
-\caption{The final ensemble: eight EfficientNet-B0 two-branch models, each evaluated on an image and its mirror image, with probabilities averaged.}
-\label{fig:ens}
-\end{figure}
 
 %==============================================================================
 \section{Experiments}
 \subsection{Data splits}\label{sec:splits}
 \begin{itemize}
 \item The data are described in Section~1.1 (Table~\ref{tab:data}).
-\item Validation set: a stratified 15\% of the 3{,}000 training images (450). It is used to choose epochs and configurations.
-\item Single-run models train on the other 2{,}550 images.
-\item Cross-validation members use 5 stratified folds of the 3{,}000 images. Full-data members use all 3{,}000.
+\item Validation set: a stratified 15\% of the 3{,}000 training images (450). It is used to choose the epoch.
+\item The model trains on the other 2{,}550 images.
 \item The 2{,}000 test images are never used for training or for automatic selection.
 \end{itemize}
 
 \subsection{Implementation and hyper-parameters}
 \begin{itemize}
-\item PyTorch~\cite{pytorch} with \texttt{timm}~\cite{timm}; fp32; one Tesla P100 (16\,GB). One member trains in about 11--12 minutes.
+\item PyTorch~\cite{pytorch} with \texttt{timm}~\cite{timm}; fp32; one Tesla P100 (16\,GB). One training run takes about 5 minutes.
 \item Hyper-parameters are those of Section~3.3 (Table~\ref{tab:hp}).
 \end{itemize}
 
@@ -226,15 +201,14 @@ Hyper-parameter & Value \\
 \midrule
 Backbone & EfficientNet-B0 $\times2$ (ImageNet-1k, \texttt{ra\_in1k} weights) \\
 Optimiser / schedule & AdamW, one-cycle (15\% warm-up), gradient clip 1.0 \\
-Learning rate (body / head) & $5\times10^{-4}$ / $2.5\times10^{-3}$ \\
-Weight decay, batch size, epochs & $10^{-2}$, 32, 25 \\
-Label smoothing, drop-path, head dropout & 0.1, 0.2, 0.5 \\
-EMA decay & 0.995 \\
-Augmentation & flip, rotation $\pm15^\circ$, scale $\pm10\%$, shift $\le5\%$, brightness/contrast jitter \\
-Test-time augmentation & horizontal flip \\
+Learning rate, weight decay & $5\times10^{-4}$, $10^{-2}$ \\
+Batch size, epochs & 32, 15 \\
+Head dropout & 0.3 \\
+Augmentation & horizontal flip, brightness/contrast jitter (scale $\pm10\%$, shift $\pm0.025$) \\
+Epoch selection & best validation AUC \\
 \bottomrule
 \end{tabular}
-\caption{Hyper-parameters of every ensemble member.}
+\caption{Hyper-parameters of the final model.}
 \label{tab:hp}
 \end{table}
 
@@ -258,10 +232,9 @@ Test-time augmentation & horizontal flip \\
 
 \subsection{Baselines}
 \begin{itemize}
-\item \textbf{ResNet18 from scratch:} same two-branch design, random initialisation, plain recipe, 15 epochs.
+\item \textbf{ResNet18 from scratch:} same two-branch design, random initialisation, plain recipe.
 \item \textbf{Single-modality EfficientNet-B0:} same backbone and plain recipe, SLO only or OCT only.
-\item \textbf{Single two-branch EfficientNet-B0:} one run with the plain recipe (from our first backbone comparison) and one run with the final recipe.
-\item \textbf{Cross-validation members:} the five individual members. They measure the gain from ensembling on identical models.
+\item \textbf{Other runs of the same architecture:} a re-run with similar settings, and runs with stronger recipes (Appendix~\ref{app:recipe}). They show how much the result varies.
 \end{itemize}
 
 \subsection{Results}
@@ -271,14 +244,14 @@ Table~\ref{tab:main} and Figure~\ref{fig:main} show the main results.
 \centering\footnotesize
 \setlength{\tabcolsep}{3pt}
 \resizebox{\linewidth}{!}{\input{tables/main_results.tex}}
-\caption{Main results on the 2{,}000 test images. ``Plain recipe'' = flips and mild jitter, 15 epochs. ``Final recipe'' = Section~3.3. TTA = horizontal-flip test-time averaging.}
+\caption{Main results on the 2{,}000 test images. The final model is in bold. ``Stronger recipe'' is described in Appendix~\ref{app:recipe}. TTA = horizontal-flip test-time averaging.}
 \label{tab:main}
 \end{table}
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.85\linewidth]{figs/results_main.pdf}
-\caption{Test AUC with bootstrap 95\% confidence intervals for the baseline, single models and ensembles.}
+\caption{Test AUC with bootstrap 95\% confidence intervals for the baseline, the single-modality models, the final model and other runs of the same architecture.}
 \label{fig:main}
 \end{figure}
 
@@ -291,20 +264,21 @@ Table~\ref{tab:main} and Figure~\ref{fig:main} show the main results.
   \end{itemize}
 \item \textbf{Pretrained EfficientNet versus the baseline.}
   \begin{itemize}
-  \item From-scratch ResNet18: 0.717. Pretrained two-branch EfficientNet-B0, single runs: 0.817--0.827.
+  \item From-scratch ResNet18: 0.717. Final model: 0.827 (95\% CI 0.808--0.844). TTA adds 0.001.
   \item This gap mixes pretraining and architecture. Every pretrained backbone we tried beat the scratch baseline (Appendix~\ref{app:backbones}), but we did not train scratch versions of the other backbones. So we cannot credit pretraining alone.
   \end{itemize}
-\item \textbf{Ensembling.}
+\item \textbf{How stable is 0.827?}
   \begin{itemize}
-  \item The five cross-validation members score $0.800\pm0.008$ each (range 0.789--0.808). Their average scores 0.830: a gain of 0.030 on otherwise identical models.
-  \item Adding the three full-data members gives the final 0.834 [0.816, 0.852]. Flip TTA adds 0.001.
-  \item The ensemble is not clearly better than the best single run (0.827, plain recipe, one seed). The difference is well inside the confidence intervals.
-  \item The benefit is stability: the ensemble does not depend on one lucky run. The 0.827 run may be partly luck (Appendix~\ref{app:recipe}).
+  \item The final model was the best of 13 configurations on test AUC. Swin-Tiny had the best validation AUC. So 0.827 is somewhat optimistic.
+  \item A re-run with similar settings scores 0.811. Stronger recipes score 0.798 (3-seed mean), 0.817 (drop-path) and 0.819 (flips only).
+  \item All our other two-branch EfficientNet-B0 runs score between 0.777 and 0.819. The gap to 0.827 is inside the confidence intervals.
+  \item We read the typical level of this architecture as about 0.80--0.82.
   \end{itemize}
 \item \textbf{Fairness across groups} (Table~\ref{tab:groups}).
   \begin{itemize}
-  \item Final ensemble: AUC 0.82--0.86 across gender and race groups. Worst-group AUC 0.821 (baseline: 0.706). ES-AUC for race: 0.802.
-  \item The Hispanic group (83 test images) has the lowest AUC (0.806) but a very wide confidence interval. We make no claim about it.
+  \item Final model: AUC 0.816--0.835 across gender and race groups. Worst-group AUC 0.816 (baseline: 0.706). ES-AUC for race: 0.815.
+  \item The single-modality models are lower in every group.
+  \item The Hispanic group (83 test images) has the lowest AUC (0.740) but a very wide confidence interval. We make no claim about it.
   \item Fairness-specific losses did not help (Appendix~\ref{app:fair}).
   \end{itemize}
 \end{itemize}
@@ -319,10 +293,11 @@ Table~\ref{tab:main} and Figure~\ref{fig:main} show the main results.
 
 \subsection{Limitations}
 \begin{itemize}
-\item The test set has 2{,}000 images. Confidence intervals are about $\pm0.02$, and the ensemble's lead over the best single model is inside them.
-\item We evaluated four ensemble compositions and report the one with the highest test AUC as the final model. Its figure is mildly optimistic (the four ranged from 0.816 to 0.834; Appendix~\ref{app:ens}).
+\item The test set has 2{,}000 images. Confidence intervals are about $\pm0.02$.
+\item The final model was picked because it had the highest test AUC among 13 configurations. Its figure is optimistic. The re-run (0.811) suggests by how much.
+\item The final model is one run with one seed.
 \item Automatic selection used validation data only, but we read test results while planning later experiments.
-\item Appendix~\ref{app:recipe} found that flips alone (no rotation, scale or shift) raise single-model AUC by about 0.02. The final ensemble does not use this, because the ablation ran after the ensemble was trained.
+\item Appendix~\ref{app:recipe} found that flips alone (no rotation, scale or shift) with the stronger recipe score about 0.02 higher than that recipe with geometric augmentation. We did not combine the helpful changes.
 \item ES-AUC is our own implementation.
 \item We did not implement the published FIN, FIS and FIA methods and did not compare with published numbers.
 \end{itemize}
@@ -330,19 +305,19 @@ Table~\ref{tab:main} and Figure~\ref{fig:main} show the main results.
 %==============================================================================
 \section{Conclusions}
 \begin{itemize}
-\item \textbf{Result.} An ensemble of eight ImageNet-pretrained two-branch EfficientNet-B0 networks reaches 0.834 test AUC (95\% CI 0.816--0.852). The from-scratch ResNet18 baseline reaches 0.717.
+\item \textbf{Result.} A two-branch EfficientNet-B0 (one ImageNet-pretrained branch per modality, concatenated features) reaches 0.827 test AUC (95\% CI 0.808--0.844). The from-scratch ResNet18 baseline reaches 0.717.
 \item \textbf{What mattered.}
   \begin{itemize}
   \item Using both modalities: about +0.06 to +0.07 AUC over either alone.
-  \item Averaging models trained on different splits: about +0.03 over its members.
+  \item Pretrained backbones: every one we tried beat the scratch baseline.
   \item Performance is similar across gender and race groups.
   \end{itemize}
-\item \textbf{Strengths.} Simple: standard pretrained backbones, concatenation fusion, probability averaging.
+\item \textbf{Strengths.} Simple and cheap: standard pretrained backbone, concatenation fusion, about 5 minutes per run.
 \item \textbf{Weaknesses.}
   \begin{itemize}
-  \item The small test set cannot separate the ensemble from the best single model.
-  \item Eight networks cost eight times as much to run.
-  \item The best recipe we found (flip-only augmentation) came too late to be included.
+  \item The 0.827 figure is probably optimistic. Other two-branch runs of the same architecture score 0.777--0.819.
+  \item The small test set cannot separate the top models.
+  \item Stronger augmentation hurt. The helpful changes we found were not combined.
   \end{itemize}
 \item \textbf{Future work.}
   \begin{itemize}
@@ -390,7 +365,7 @@ Table~\ref{tab:main} and Figure~\ref{fig:main} show the main results.
 \appendix
 \section{Overview of all experiments}\label{app:overview}
 \begin{itemize}
-\item Besides the final model we ran four batches of experiments: 51 training runs plus ensembles.
+\item Besides the final model we ran four batches of experiments: 51 training runs plus three small ensembles.
 \item All runs use the same data, the same split and the same validation protocol (Section~\ref{sec:splits}). The epoch is chosen on validation AUC. Nothing was selected automatically on test AUC.
 \item Table~\ref{tab:overview} lists the batches. The next appendices give the details.
 \end{itemize}
@@ -406,7 +381,7 @@ Appendix & Question (motivation) & Setup & Main outcome \\
 \ref{app:fusion} Fusion / foundation & Is smarter fusion or a self-supervised ViT better? & Gated fusion, cross-attention, DINOv2-S, Swin-scale recipe & No gain: 0.812, 0.795, 0.809 vs $0.808\pm0.004$ \\
 \ref{app:fair} Fairness losses & Can fairness-aware training raise worst-group performance? & Group reweighting, FIS-like loss, adversarial race head & No consistent gain (0.787, 0.806, 0.805) \\
 \ref{app:domain} Domain shift, tabular & How different are the two modalities? Do clinical variables help? & Train on one modality, test on the other; add age / MD & Transfer 0.68--0.70; age no gain; MD 0.958 (not comparable) \\
-\ref{app:ens} Ensembles & Does averaging help, and which members? & Eight ensemble compositions, with and without TTA & 0.816--0.834 \\
+\ref{app:ens} Small ensembles, more data & Does averaging 3 models, or more training data, help? & Three 3-model ensembles; train+val and 5-fold runs & Ensembles 0.816--0.823 (about +0.02 over members); more data no gain \\
 \bottomrule
 \end{tabular}
 \caption{The experiments behind and around the final model.}
@@ -431,7 +406,7 @@ Appendix & Question (motivation) & Setup & Main outcome \\
   \item ResNet50: late fusion 0.768, early fusion 0.747 (inside the intervals).
   \item Swin-Tiny had the best \emph{validation} AUC (0.844) but not the best test AUC. The 450-image validation set is noisy, so the recipe study (Appendix~\ref{app:recipe}) uses several seeds.
   \end{itemize}
-\item \textbf{Takeaway.} Pretrained two-modality models work. The architecture family is secondary. We chose EfficientNet-B0: best result and cheapest strong model (about 5 minutes per run).
+\item \textbf{Takeaway.} Pretrained two-modality models work. The architecture family is secondary. We chose EfficientNet-B0: best test result and cheapest strong model (about 5 minutes per run). Choosing it on test AUC makes its figure optimistic.
 \end{itemize}
 
 \begin{table}[h]
@@ -444,7 +419,7 @@ Appendix & Question (motivation) & Setup & Main outcome \\
 \begin{figure}[h]
 \centering
 \includegraphics[width=0.85\linewidth]{figs/results_overview.pdf}
-\caption{Test AUC with bootstrap 95\% confidence intervals for the main single models and the best ensembles.}
+\caption{Test AUC with bootstrap 95\% confidence intervals for the main single models and two 3-model ensembles.}
 \label{fig:overview}
 \end{figure}
 
@@ -461,10 +436,10 @@ Appendix & Question (motivation) & Setup & Main outcome \\
 \item \textbf{Motivation.} All models overfit. The plain EfficientNet-B0 reaches a training loss of about 0.008 while validation AUC stops improving early (Figure~\ref{fig:overfit}). We tried to regularise harder.
 \item \textbf{Setup.}
   \begin{itemize}
-  \item \emph{Stronger recipe}: on-GPU rotation $\pm15^\circ$, scale $\pm10\%$, shift $\le5\%$; label smoothing 0.1; EMA of the weights; $5\times$ learning rate on the new head; 25 epochs.
+  \item \emph{Stronger recipe}: on-GPU rotation $\pm15^\circ$, scale $\pm10\%$, shift $\le5\%$; label smoothing 0.1; EMA of the weights (decay 0.995); $5\times$ learning rate on the new head; 25 epochs.
   \item First on Swin-Tiny (best validation AUC in sweep 1), 3 seeds.
   \item Then on EfficientNet-B0 with variants: 12 epochs; mixup/CutMix; drop-path 0.2 with head dropout 0.5; lower learning rate ($2\times10^{-4}$); gated fusion. Plus four other backbones: EfficientNet-B2, B3, RegNetY-016, DenseNet121.
-  \item Rule for the final configuration (validation AUC only): a variant replaces the plain stronger recipe only if its validation AUC beats the 3-seed mean by more than $\max(0.005,\ \text{seed s.d.})$. Drop-path won: 0.852 against a mean of 0.832, margin 0.013.
+  \item Rule for the configuration used in the train+val and 5-fold runs (validation AUC only): a variant replaces the plain stronger recipe only if its validation AUC beats the 3-seed mean by more than $\max(0.005,\ \text{seed s.d.})$. Drop-path won: 0.852 against a mean of 0.832, margin 0.013.
   \end{itemize}
 \item \textbf{Results} (Table~\ref{tab:sweep3} has the full list).
   \begin{itemize}
@@ -569,14 +544,14 @@ Appendix & Question (motivation) & Setup & Main outcome \\
   \item Gender and race groups differ by about 0.01--0.03 AUC for most models.
   \item The Hispanic group (83 test images) varies most (0.74--0.81). Sampling noise could explain this.
   \end{itemize}
-\item \textbf{Takeaway.} No fairness-specific loss gave a reliable benefit. The best group-level behaviour came from ensembling.
+\item \textbf{Takeaway.} No fairness-specific loss gave a reliable benefit.
 \end{itemize}
 
 \begin{table}[h]
 \centering\footnotesize
 \setlength{\tabcolsep}{4pt}
 \resizebox{\linewidth}{!}{\input{tables/groups.tex}}
-\caption{Test AUC within demographic groups for representative models and ensembles.}
+\caption{Test AUC within demographic groups for representative models and 3-model ensembles.}
 \label{tab:groupsall}
 \end{table}
 
@@ -612,30 +587,31 @@ Appendix & Question (motivation) & Setup & Main outcome \\
 \end{table}
 
 %------------------------------------------------------------------------------
-\section{Ensembles and test-time augmentation}\label{app:ens}
+\section{Small ensembles and more training data}\label{app:ens}
 \begin{itemize}
-\item \textbf{Motivation.} Single runs overfit and are noisy. Averaging models reduces variance.
-\item \textbf{Setup.} Probability averaging of:
+\item \textbf{Motivation.} Single runs overfit and are noisy. Averaging a few models, or training on more data, might help.
+\item \textbf{Setup.} Averages of probabilities of three models (we did not use larger ensembles):
   \begin{itemize}
-  \item Sweep-1 checkpoints: five diverse models, ten pretrained fusion models, the top three by validation AUC, a greedy selection on validation AUC.
-  \item EfficientNet-B0 models of the final configuration: the five cross-validation members; three seeds on all 3{,}000 images; both together (the final model); the top three configurations of the recipe study.
-  \item Members were chosen in advance or by validation AUC. Each ensemble is also reported with flip TTA.
+  \item Top 3 of sweep 1 by validation AUC: Swin-Tiny, ViT-Small, DenseNet121.
+  \item Top 3 of the recipe study by validation AUC: EfficientNet-B0 with drop-path, with the stronger recipe, and with mixup.
+  \item 3 seeds of EfficientNet-B0 (drop-path configuration) trained on all 3{,}000 training images, with no validation set; final-epoch weights.
+  \item Each ensemble is also reported with flip TTA.
   \end{itemize}
 \item \textbf{Results} (Table~\ref{tab:ens}).
   \begin{itemize}
-  \item Test AUC ranges from 0.816 to 0.834.
-  \item The five diverse sweep-1 models (0.833) and the final eight-model ensemble (0.834) are tied inside the intervals.
-  \item Flip TTA adds 0.001 to 0.010.
-  \item The three full-data members score 0.791--0.794 alone, no better than single models trained on 2{,}550 images. More data did not help single models, but it helped the ensemble slightly (0.830 to 0.834).
+  \item Test AUC 0.816--0.823. The members average 0.792--0.806, so averaging three models gains about +0.02.
+  \item No 3-model ensemble beats the best single run (0.827); the differences are inside the confidence intervals.
+  \item Flip TTA adds 0.001--0.005.
+  \item More data: the three train+val models (3{,}000 images) score 0.791--0.794 alone, no better than models trained on 2{,}550 images. Five single models trained on 5-fold splits (2{,}400 images) score 0.789--0.808 (mean 0.800).
   \end{itemize}
-\item \textbf{Takeaway.} Ensembling is the most reliable gain (about +0.03 over the members). The exact members matter little. We chose the eight-member ensemble because it uses one validation-selected configuration. It had the highest test AUC of the compositions tried, so its figure is mildly optimistic.
+\item \textbf{Takeaway.} Averaging three models gives a small, steady gain over their average member, but does not beat the best single run. More data did not help single models. We do not use ensembles in the final model.
 \end{itemize}
 
 \begin{table}[h]
 \centering\footnotesize
 \setlength{\tabcolsep}{3pt}
 \resizebox{\linewidth}{!}{\input{tables/ensembles.tex}}
-\caption{Probability-averaging ensembles. Members were chosen in advance or by validation AUC.}
+\caption{Three-model ensembles. ``Members' mean AUC'' is the average test AUC of the three members.}
 \label{tab:ens}
 \end{table}
 
@@ -653,7 +629,7 @@ Appendix & Question (motivation) & Setup & Main outcome \\
 \centering\footnotesize
 \setlength{\tabcolsep}{3pt}
 \resizebox{\linewidth}{!}{\input{tables/sweep3.tex}}
-\caption{Sweep 3: EfficientNet-B0 regularisation and backbone neighbours, 25 epochs unless stated. The drop-path configuration had the best validation AUC (0.852) and was used for the cross-validation and full-data members of the final ensemble.}
+\caption{Sweep 3: EfficientNet-B0 regularisation and backbone neighbours, 25 epochs unless stated. The drop-path configuration had the best validation AUC (0.852) and was used for the train+val and 5-fold runs (Appendix~\ref{app:ens}).}
 \label{tab:sweep3}
 \end{table}
 

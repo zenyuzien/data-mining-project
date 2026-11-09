@@ -100,3 +100,10 @@ Notes:
 ## 13. Report body rewritten as bullet points in simple English (2026-11-09)
 - Everything after the Introduction (related work, method, experiments, conclusions, appendices) is now bullets with short, precise sentences. Numbers unchanged.
 - Not yet pushed to GitHub.
+
+## 14. Removed all ensembles of more than 3 models from the report (2026-11-09)
+- Final model is now the single two-branch EfficientNet-B0 (plain recipe, sweep 1): test AUC 0.827 [0.808, 0.844]; flagged as optimistic
+  (best of 13 on test; re-run 0.811; other two-branch EfficientNet-B0 runs 0.777-0.819).
+- Only three 3-model ensembles remain (appendix G): 0.816-0.823. Raw results/code still contain the larger ensembles
+  (results_t0, results_sweep3/ensembles.json, run_sweep3.py, ensemble_ckpts.py); they are just not reported.
+- Not yet pushed to GitHub.

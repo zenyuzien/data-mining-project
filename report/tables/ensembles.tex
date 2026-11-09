@@ -1,14 +1,9 @@
 \begin{tabular}{llrrrrr}
 \toprule
-Ensemble (probability average) & Source & $n$ & Test AUC & 95\% CI & TTA AUC & ES-AUC race \\
+Ensemble (average of probabilities) & $n$ & Members' mean AUC & Test AUC & 95\% CI & TTA AUC & ES-AUC race \\
 \midrule
-5-fold + train+val seeds (8 models) & Sweep 3 & 8 & 0.834 & [0.816, 0.852] & 0.835 & 0.802 \\
-5 diverse first-sweep models & Sweep 1 checkpoints & 5 & 0.833 & [0.814, 0.851] & 0.834 & 0.821 \\
-5-fold CV models (drop-path config) & Sweep 3 & 5 & 0.830 & [0.811, 0.848] & 0.831 & 0.807 \\
-greedy selection on validation (8 slots) & Sweep 1 checkpoints & 8 & 0.830 & [0.811, 0.847] & 0.831 & 0.814 \\
-10 pretrained fusion models & Sweep 1 checkpoints & 10 & 0.829 & [0.809, 0.846] & 0.829 & 0.821 \\
-top-3 of sweep-3 tiers 1--2 by validation & Sweep 3 & 3 & 0.823 & [0.803, 0.841] & 0.824 & 0.799 \\
-top-3 by validation AUC & Sweep 1 checkpoints & 3 & 0.819 & [0.800, 0.837] & 0.822 & 0.805 \\
-3 seeds trained on train+val & Sweep 3 & 3 & 0.816 & [0.797, 0.834] & 0.821 & 0.764 \\
+Top 3 of the recipe study by validation AUC & 3 & 0.806 & 0.823 & [0.803, 0.841] & 0.824 & 0.799 \\
+Top 3 of sweep 1 by validation AUC (Swin-T, ViT-S, DenseNet121) & 3 & 0.800 & 0.819 & [0.800, 0.837] & 0.822 & 0.805 \\
+3 seeds trained on train+val (EfficientNet-B0) & 3 & 0.792 & 0.816 & [0.797, 0.834] & 0.821 & 0.764 \\
 \bottomrule
 \end{tabular}
