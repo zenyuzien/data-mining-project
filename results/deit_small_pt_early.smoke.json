@@ -1,0 +1,60 @@
+{
+  "name": "deit_small_pt_early",
+  "arch": "deit_small_patch16_224",
+  "fusion": "early",
+  "pt": true,
+  "lr": 5e-05,
+  "bs": 32,
+  "wd": 0.05,
+  "family": "Transformer",
+  "status": "ok",
+  "epochs": 1,
+  "smoke": true,
+  "n_train": 64,
+  "n_val": 32,
+  "n_test": 64,
+  "pretrained_used": true,
+  "params_M": 21.57,
+  "batch_size": 32,
+  "best_epoch": 1,
+  "val_auc": 0.5020242914979757,
+  "test_auc": 0.6256256256256256,
+  "test_acc": 0.625,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 0.8182836174964905,
+      "val_auc": 0.5020242914979757,
+      "test_auc": 0.6256256256256256
+    }
+  ],
+  "group_auc": {
+    "gender:female": {
+      "n": 45,
+      "auc": 0.548582995951417
+    },
+    "gender:male": {
+      "n": 19,
+      "auc": 0.7727272727272727
+    },
+    "race:asian": {
+      "n": 7,
+      "auc": 0.5833333333333334
+    },
+    "race:black": {
+      "n": 8,
+      "auc": 0.3333333333333333
+    },
+    "race:white": {
+      "n": 49,
+      "auc": 0.6564625850340136
+    },
+    "ethnicity:non-hispanic": {
+      "n": 61,
+      "auc": 0.6472527472527473
+    }
+  },
+  "worst_group_auc": null,
+  "auc_gap_gender_race": null,
+  "seconds": 10.7
+}

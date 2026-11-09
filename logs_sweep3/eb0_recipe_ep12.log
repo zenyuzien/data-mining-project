@@ -1,0 +1,13 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+ep  1 loss=0.6510 val_auc=0.7723 test_auc=0.7373 [35s]
+ep  2 loss=0.6362 val_auc=0.8049 test_auc=0.7654 [60s]
+ep  3 loss=0.5883 val_auc=0.8297 test_auc=0.7849 [87s]
+ep  4 loss=0.5662 val_auc=0.8359 test_auc=0.7767 [113s]
+ep  5 loss=0.5233 val_auc=0.8286 test_auc=0.7890 [139s]
+ep  6 loss=0.4706 val_auc=0.8235 test_auc=0.7793 [165s]
+ep  7 loss=0.4019 val_auc=0.8172 test_auc=0.7703 [192s]
+ep  8 loss=0.3409 val_auc=0.8159 test_auc=0.7768 [218s]
+ep  9 loss=0.2953 val_auc=0.8110 test_auc=0.7751 [244s]
+ep 10 loss=0.2672 val_auc=0.8188 test_auc=0.7754 [271s]
+ep 11 loss=0.2553 val_auc=0.8095 test_auc=0.7722 [297s]
+ep 12 loss=0.2559 val_auc=0.8121 test_auc=0.7746 [323s]

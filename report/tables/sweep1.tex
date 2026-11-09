@@ -1,0 +1,19 @@
+\begin{tabular}{llrrrrrr}
+\toprule
+Model & Type & Params (M) & Val AUC & Test AUC & TTA AUC & Acc. & Worst-group AUC \\
+\midrule
+EfficientNet-B0 & CNN & 8.0 & 0.833 & 0.827 & 0.828 & 0.763 & 0.816 \\
+Swin-Tiny & Transformer & 55.0 & 0.844 & 0.807 & 0.811 & 0.739 & 0.796 \\
+DenseNet121 & CNN & 13.9 & 0.837 & 0.803 & 0.810 & 0.740 & 0.794 \\
+CoAtNet-0 & Hybrid & 53.3 & 0.835 & 0.793 & 0.796 & 0.716 & 0.787 \\
+ViT-Small & Transformer & 42.9 & 0.841 & 0.790 & 0.792 & 0.724 & 0.781 \\
+MaxViT-Tiny (early fusion) & Hybrid & 28.6 & 0.820 & 0.778 & 0.788 & 0.715 & 0.768 \\
+DeiT-Small (early fusion) & Transformer & 21.6 & 0.812 & 0.768 & 0.774 & 0.706 & 0.756 \\
+ResNet50 & CNN & 47.0 & 0.796 & 0.768 & 0.779 & 0.703 & 0.741 \\
+ConvNeXt-Tiny & CNN & 55.6 & 0.822 & 0.767 & 0.767 & 0.680 & 0.757 \\
+EfficientNet-B0, OCT only & Single modality & 4.0 & 0.809 & 0.764 & 0.771 & 0.683 & 0.753 \\
+EfficientNet-B0, SLO only & Single modality & 4.0 & 0.806 & 0.758 & 0.762 & 0.673 & 0.723 \\
+ResNet50 (early fusion) & CNN & 23.5 & 0.746 & 0.747 & 0.759 & 0.688 & 0.745 \\
+ResNet18 (scratch) & CNN & 22.3 & 0.773 & 0.717 & 0.725 & 0.666 & 0.706 \\
+\bottomrule
+\end{tabular}

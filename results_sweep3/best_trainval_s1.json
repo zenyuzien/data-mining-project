@@ -1,0 +1,295 @@
+{
+  "name": "best_trainval_s1",
+  "family": "T3 train+val",
+  "arch": "efficientnet_b0",
+  "fusion": "late",
+  "pt": true,
+  "loss": "ce",
+  "tab": [],
+  "mod_drop": 0.0,
+  "seed": 1,
+  "xdom": null,
+  "aug": "strong",
+  "ema": true,
+  "ls": 0.1,
+  "head_lr_mult": 5.0,
+  "kw": {
+    "drop_path_rate": 0.2
+  },
+  "mix": 0.0,
+  "head_drop": 0.5,
+  "split": "trainval",
+  "fold": null,
+  "epochs": 25,
+  "lr": 0.0005,
+  "bs": 32,
+  "wd": 0.01,
+  "best_source": "eb0_droppath (val 0.8521) beat eb0_recipe mean 0.8321 + margin 0.0129",
+  "status": "ok",
+  "smoke": false,
+  "n_train": 3000,
+  "n_val": 0,
+  "n_test": 2000,
+  "pretrained_used": true,
+  "params_M": 8.02,
+  "batch_size": 32,
+  "best_epoch": 25,
+  "val_auc": null,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 0.6652576160687272,
+      "val_auc": NaN,
+      "test_auc": 0.7157605464172012,
+      "test_auc_tta": 0.7277800231151574
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.6178274568050138,
+      "val_auc": NaN,
+      "test_auc": 0.7613202988966109,
+      "test_auc_tta": 0.7734653794299409
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.6247186119197518,
+      "val_auc": NaN,
+      "test_auc": 0.7707669228377148,
+      "test_auc_tta": 0.7810097130256242
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.6100630910806758,
+      "val_auc": NaN,
+      "test_auc": 0.7831338359512616,
+      "test_auc_tta": 0.7940309816041029
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.5957550643592753,
+      "val_auc": NaN,
+      "test_auc": 0.7797506358694166,
+      "test_auc_tta": 0.7903904962465724
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.5864370362733,
+      "val_auc": NaN,
+      "test_auc": 0.8040914436438888,
+      "test_auc_tta": 0.8129920960747788
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.56270678517639,
+      "val_auc": NaN,
+      "test_auc": 0.8065863004707104,
+      "test_auc_tta": 0.8124522021695023
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.526470547722232,
+      "val_auc": NaN,
+      "test_auc": 0.8062489933966822,
+      "test_auc_tta": 0.8126669442106254
+    },
+    {
+      "epoch": 9,
+      "train_loss": 0.49822064785547154,
+      "val_auc": NaN,
+      "test_auc": 0.80396989154514,
+      "test_auc_tta": 0.8126213621735947
+    },
+    {
+      "epoch": 10,
+      "train_loss": 0.4666104906348772,
+      "val_auc": NaN,
+      "test_auc": 0.7984929565623446,
+      "test_auc_tta": 0.8058853500345917
+    },
+    {
+      "epoch": 11,
+      "train_loss": 0.42829548543499363,
+      "val_auc": NaN,
+      "test_auc": 0.7970920686242631,
+      "test_auc_tta": 0.804474332754948
+    },
+    {
+      "epoch": 12,
+      "train_loss": 0.39095435571926895,
+      "val_auc": NaN,
+      "test_auc": 0.7979945929574741,
+      "test_auc_tta": 0.8069448791620197
+    },
+    {
+      "epoch": 13,
+      "train_loss": 0.36798502392666316,
+      "val_auc": NaN,
+      "test_auc": 0.7956537021224008,
+      "test_auc_tta": 0.8044864879648228
+    },
+    {
+      "epoch": 14,
+      "train_loss": 0.339182585477829,
+      "val_auc": NaN,
+      "test_auc": 0.7964265708836129,
+      "test_auc_tta": 0.8050284077384119
+    },
+    {
+      "epoch": 15,
+      "train_loss": 0.3106546095942938,
+      "val_auc": NaN,
+      "test_auc": 0.7994471405375236,
+      "test_auc_tta": 0.8078008085240437
+    },
+    {
+      "epoch": 16,
+      "train_loss": 0.28462039462981686,
+      "val_auc": NaN,
+      "test_auc": 0.7969218956860147,
+      "test_auc_tta": 0.804693126532696
+    },
+    {
+      "epoch": 17,
+      "train_loss": 0.27352798065190675,
+      "val_auc": NaN,
+      "test_auc": 0.7875826427654724,
+      "test_auc_tta": 0.7956587667931823
+    },
+    {
+      "epoch": 18,
+      "train_loss": 0.26592875071751176,
+      "val_auc": NaN,
+      "test_auc": 0.7828218522311394,
+      "test_auc_tta": 0.79031300678362
+    },
+    {
+      "epoch": 19,
+      "train_loss": 0.25516513791135564,
+      "val_auc": NaN,
+      "test_auc": 0.7847241425765601,
+      "test_auc_tta": 0.7919858675426521
+    },
+    {
+      "epoch": 20,
+      "train_loss": 0.2486870894508977,
+      "val_auc": NaN,
+      "test_auc": 0.7868269938849164,
+      "test_auc_tta": 0.7943075126287565
+    },
+    {
+      "epoch": 21,
+      "train_loss": 0.24248621380457314,
+      "val_auc": NaN,
+      "test_auc": 0.7899843096499198,
+      "test_auc_tta": 0.7977362947476325
+    },
+    {
+      "epoch": 22,
+      "train_loss": 0.24452707251553896,
+      "val_auc": NaN,
+      "test_auc": 0.7905981477486019,
+      "test_auc_tta": 0.7980472655335986
+    },
+    {
+      "epoch": 23,
+      "train_loss": 0.23582378270164614,
+      "val_auc": NaN,
+      "test_auc": 0.7915887973534057,
+      "test_auc_tta": 0.7984848530890946
+    },
+    {
+      "epoch": 24,
+      "train_loss": 0.23714152779630435,
+      "val_auc": NaN,
+      "test_auc": 0.7930276703223461,
+      "test_auc_tta": 0.800120741751424
+    },
+    {
+      "epoch": 25,
+      "train_loss": 0.23995371226982404,
+      "val_auc": NaN,
+      "test_auc": 0.7916718579542175,
+      "test_auc_tta": 0.7990905877145267
+    }
+  ],
+  "test_auc": 0.7916718579542175,
+  "test_acc": 0.734,
+  "test_auc_ci95": [
+    0.7706723160986473,
+    0.811963344762516
+  ],
+  "group_auc": {
+    "gender:female": {
+      "n": 1449,
+      "auc": 0.7941275096647871,
+      "ci95": [
+        0.7723056772224979,
+        0.8195934762150356
+      ]
+    },
+    "gender:male": {
+      "n": 551,
+      "auc": 0.7846730975348339,
+      "ci95": [
+        0.746260495292659,
+        0.8235208388339942
+      ]
+    },
+    "race:asian": {
+      "n": 177,
+      "auc": 0.8577663671373555,
+      "ci95": [
+        0.8047114997949529,
+        0.9111908182813355
+      ]
+    },
+    "race:black": {
+      "n": 301,
+      "auc": 0.7546349388379205,
+      "ci95": [
+        0.6976462879069831,
+        0.8150627032928737
+      ]
+    },
+    "race:white": {
+      "n": 1522,
+      "auc": 0.7836641739214705,
+      "ci95": [
+        0.759086048053319,
+        0.8059482566444959
+      ]
+    },
+    "ethnicity:hispanic": {
+      "n": 83,
+      "auc": 0.7910539215686275,
+      "ci95": [
+        0.688034188034188,
+        0.8831738588735742
+      ]
+    },
+    "ethnicity:non-hispanic": {
+      "n": 1917,
+      "auc": 0.7919901763196441,
+      "ci95": [
+        0.771633389392995,
+        0.8103355142766646
+      ]
+    }
+  },
+  "es_auc_gender": 0.78425716747702,
+  "es_auc_race": 0.7124867167105375,
+  "es_auc_ethnicity": 0.7909313447249908,
+  "worst_group_auc": 0.7546349388379205,
+  "auc_gap_gender_race": 0.103131428299435,
+  "tta": {
+    "test_auc": 0.7990905877145267,
+    "test_auc_ci95": [
+      0.7776505542776455,
+      0.8188970372896609
+    ],
+    "es_auc_race": 0.7309372242714016,
+    "es_auc_gender": 0.7888097914173399,
+    "worst_group_auc": 0.7657205657492354
+  },
+  "seconds": 735.4
+}

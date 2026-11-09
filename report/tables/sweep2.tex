@@ -1,0 +1,19 @@
+\begin{tabular}{lrrrrrr}
+\toprule
+Variant (Swin-Tiny backbone) & Val AUC & Test AUC & 95\% CI & ES-AUC race & Worst-group & Other-domain AUC \\
+\midrule
++ age and MD (upper bound) & 0.963 & 0.958 & [0.950, 0.965] & 0.938 & 0.941 & -- \\
+Gated fusion + modality dropout & 0.842 & 0.812 & [0.793, 0.832] & 0.800 & 0.803 & -- \\
+Swin-T + recipe & 0.834 & 0.811 & [0.790, 0.831] & 0.790 & 0.806 & -- \\
+Swin-T + recipe (seed 2) & 0.836 & 0.810 & [0.789, 0.830] & 0.783 & 0.793 & -- \\
+DINOv2-S fine-tune & 0.837 & 0.809 & [0.788, 0.829] & 0.760 & 0.786 & -- \\
++ age as input & 0.840 & 0.808 & [0.786, 0.828] & 0.785 & 0.802 & -- \\
+FIS-like loss & 0.847 & 0.806 & [0.784, 0.826] & 0.779 & 0.800 & -- \\
+Adversarial race debiasing & 0.850 & 0.805 & [0.782, 0.823] & 0.788 & 0.801 & -- \\
+Swin-T + recipe (seed 1) & 0.843 & 0.803 & [0.782, 0.823] & 0.783 & 0.797 & -- \\
+ViT-S cross-attention fusion & 0.844 & 0.795 & [0.773, 0.815] & 0.772 & 0.786 & -- \\
+Train SLO $\to$ test OCT & 0.796 & 0.794 & [0.773, 0.812] & 0.759 & 0.786 & 0.677 \\
+Group-reweighted loss & 0.819 & 0.787 & [0.764, 0.808] & 0.760 & 0.780 & -- \\
+Train OCT $\to$ test SLO & 0.822 & 0.786 & [0.765, 0.804] & 0.758 & 0.779 & 0.701 \\
+\bottomrule
+\end{tabular}

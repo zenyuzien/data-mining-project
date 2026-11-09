@@ -1,0 +1,21 @@
+ep  1  train_loss=0.7524  test_AUC=0.5557  ACC=0.4455
+ep  2  train_loss=0.6779  test_AUC=0.6343  ACC=0.6125
+ep  3  train_loss=0.6585  test_AUC=0.6388  ACC=0.5960
+ep  4  train_loss=0.6426  test_AUC=0.6530  ACC=0.5790
+ep  5  train_loss=0.6431  test_AUC=0.6597  ACC=0.5940
+ep  6  train_loss=0.6141  test_AUC=0.6598  ACC=0.6180
+ep  7  train_loss=0.6054  test_AUC=0.6607  ACC=0.5680
+ep  8  train_loss=0.5904  test_AUC=0.6896  ACC=0.5610
+ep  9  train_loss=0.5530  test_AUC=0.6819  ACC=0.5640
+ep 10  train_loss=0.5238  test_AUC=0.7083  ACC=0.6560
+ep 11  train_loss=0.4850  test_AUC=0.7091  ACC=0.6585
+ep 12  train_loss=0.4256  test_AUC=0.7189  ACC=0.6760
+ep 13  train_loss=0.3949  test_AUC=0.7183  ACC=0.6725
+ep 14  train_loss=0.3639  test_AUC=0.7190  ACC=0.6635
+ep 15  train_loss=0.3554  test_AUC=0.7191  ACC=0.6710
+
+Best test AUC 0.7191 (checkpoint: best_fusion.pt). Per-group at best epoch:
+  overall  AUC=0.7191  ACC=0.6710
+  gender    female(n=1449) AUC=0.721 | male(n=551) AUC=0.713
+  race      asian(n=177) AUC=0.726 | black(n=301) AUC=0.712 | white(n=1522) AUC=0.710
+  ethnicity hispanic(n=83) AUC=0.557 | non-hispanic(n=1917) AUC=0.726

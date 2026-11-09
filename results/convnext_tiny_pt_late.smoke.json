@@ -1,0 +1,60 @@
+{
+  "name": "convnext_tiny_pt_late",
+  "arch": "convnext_tiny",
+  "fusion": "late",
+  "pt": true,
+  "lr": 0.0001,
+  "bs": 32,
+  "wd": 0.05,
+  "family": "Modern CNN",
+  "status": "ok",
+  "epochs": 1,
+  "smoke": true,
+  "n_train": 64,
+  "n_val": 32,
+  "n_test": 64,
+  "pretrained_used": true,
+  "params_M": 55.64,
+  "batch_size": 32,
+  "best_epoch": 1,
+  "val_auc": 0.8906882591093117,
+  "test_auc": 0.5885885885885885,
+  "test_acc": 0.578125,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 1.2921911478042603,
+      "val_auc": 0.8906882591093117,
+      "test_auc": 0.5885885885885885
+    }
+  ],
+  "group_auc": {
+    "gender:female": {
+      "n": 45,
+      "auc": 0.6518218623481781
+    },
+    "gender:male": {
+      "n": 19,
+      "auc": 0.45454545454545453
+    },
+    "race:asian": {
+      "n": 7,
+      "auc": 0.5
+    },
+    "race:black": {
+      "n": 8,
+      "auc": 0.5333333333333333
+    },
+    "race:white": {
+      "n": 49,
+      "auc": 0.6139455782312926
+    },
+    "ethnicity:non-hispanic": {
+      "n": 61,
+      "auc": 0.6241758241758242
+    }
+  },
+  "worst_group_auc": null,
+  "auc_gap_gender_race": null,
+  "seconds": 25.1
+}

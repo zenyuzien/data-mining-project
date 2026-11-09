@@ -1,0 +1,21 @@
+# environments and tooling
+venv/
+texenv/
+__pycache__/
+*.pyc
+# data (large; CC BY-NC-ND FairDomain release -- obtain separately)
+extracted/
+*.zip
+# model checkpoints (several GB)
+ckpt/
+ckpt_next/
+ckpt_sweep3/
+*.pt
+# installer log
+report/conda_tectonic.log
+# LaTeX build by-products
+report/*.aux
+report/*.log
+report/*.xdv
+# smoke-test outputs
+*.smoke.*

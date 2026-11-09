@@ -1,0 +1,13 @@
+\begin{tabular}{lrrr}
+\toprule
+EfficientNet-B0 variant & Val AUC & Test AUC & TTA AUC \\
+\midrule
+Recipe (3 seeds, mean $\pm$ s.d.) & 0.832 & 0.798 $\pm$ 0.003 & 0.803 \\
+\midrule
+EMA off & 0.817 & 0.786 & 0.792 \\
+Head LR $\times$1 (instead of $\times$5) & 0.828 & 0.807 & 0.807 \\
+Flip + mild jitter only (no rotate/scale/shift) & 0.853 & 0.819 & 0.824 \\
+All three reverted, no label smoothing, 15 epochs (approx. sweep-1 setup) & 0.844 & 0.811 & 0.814 \\
+Sweep-1 run (original code, one seed) & 0.833 & 0.827 & 0.828 \\
+\bottomrule
+\end{tabular}

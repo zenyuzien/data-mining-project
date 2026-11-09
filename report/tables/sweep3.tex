@@ -1,0 +1,21 @@
+\begin{tabular}{lrrrrrr}
+\toprule
+Configuration & Val AUC & Test AUC & 95\% CI & TTA AUC & ES-AUC race & Worst-group \\
+\midrule
+EfficientNet-B0 + recipe & 0.844 & 0.799 & [0.779, 0.820] & 0.802 & 0.774 & 0.782 \\
+\quad seed 1 & 0.818 & 0.795 & [0.774, 0.815] & 0.801 & 0.747 & 0.782 \\
+\quad seed 2 & 0.835 & 0.800 & [0.778, 0.821] & 0.805 & 0.755 & 0.777 \\
+\quad 12 epochs & 0.836 & 0.777 & [0.757, 0.798] & 0.787 & 0.760 & 0.766 \\
+\quad + mixup/CutMix & 0.839 & 0.800 & [0.780, 0.819] & 0.805 & 0.765 & 0.786 \\
+\quad + drop-path 0.2, dropout 0.5 & 0.852 & 0.817 & [0.797, 0.839] & 0.820 & 0.793 & 0.803 \\
+\quad lower LR (2e-4) & 0.833 & 0.790 & [0.767, 0.812] & 0.803 & 0.779 & 0.783 \\
+\quad gated fusion + modality dropout & 0.832 & 0.810 & [0.791, 0.830] & 0.814 & 0.801 & 0.803 \\
+\midrule
+EfficientNet-B2 & 0.839 & 0.796 & [0.778, 0.817] & 0.806 & 0.765 & 0.783 \\
+EfficientNet-B3 & 0.821 & 0.779 & [0.759, 0.799] & 0.789 & 0.738 & 0.757 \\
+RegNetY-016 & 0.831 & 0.807 & [0.785, 0.828] & 0.812 & 0.773 & 0.803 \\
+DenseNet121 & 0.828 & 0.781 & [0.760, 0.801] & 0.791 & 0.739 & 0.768 \\
+\midrule
+Drop-path config + adversarial race debiasing & 0.847 & 0.802 & [0.781, 0.821] & 0.807 & 0.782 & 0.796 \\
+\bottomrule
+\end{tabular}

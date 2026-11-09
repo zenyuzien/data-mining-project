@@ -1,0 +1,60 @@
+{
+  "name": "efficientnet_b0_pt_oct",
+  "arch": "efficientnet_b0",
+  "fusion": "oct",
+  "pt": true,
+  "lr": 0.0005,
+  "bs": 32,
+  "wd": 0.01,
+  "family": "Ablation",
+  "status": "ok",
+  "epochs": 1,
+  "smoke": true,
+  "n_train": 64,
+  "n_val": 32,
+  "n_test": 64,
+  "pretrained_used": true,
+  "params_M": 4.01,
+  "batch_size": 32,
+  "best_epoch": 1,
+  "val_auc": 0.340080971659919,
+  "test_auc": 0.5325325325325325,
+  "test_acc": 0.453125,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 0.7202121913433075,
+      "val_auc": 0.340080971659919,
+      "test_auc": 0.5325325325325325
+    }
+  ],
+  "group_auc": {
+    "gender:female": {
+      "n": 45,
+      "auc": 0.5364372469635627
+    },
+    "gender:male": {
+      "n": 19,
+      "auc": 0.5113636363636364
+    },
+    "race:asian": {
+      "n": 7,
+      "auc": 1.0
+    },
+    "race:black": {
+      "n": 8,
+      "auc": 0.19999999999999998
+    },
+    "race:white": {
+      "n": 49,
+      "auc": 0.5204081632653061
+    },
+    "ethnicity:non-hispanic": {
+      "n": 61,
+      "auc": 0.5153846153846154
+    }
+  },
+  "worst_group_auc": null,
+  "auc_gap_gender_race": null,
+  "seconds": 9.9
+}
