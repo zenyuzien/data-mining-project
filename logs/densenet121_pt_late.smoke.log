@@ -1,2 +1,0 @@
-Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-ep  1 loss=0.6788 val_auc=0.6235 test_auc=0.5305 [17s]
